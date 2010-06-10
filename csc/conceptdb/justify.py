@@ -1,5 +1,6 @@
 import mongoengine as mon
 
+
 class Reason(mon.Document):
     name = mon.StringField(required=True, primary_key=True)
     type = mon.StringField(required=True)
@@ -9,16 +10,18 @@ class JustifiedObject(object):
     """
     This mixin provides convenience methods for working with an object with
     a `justification` field.
+
+    The methods here will mutate data but *not* save it to the DB.
     """
     def confidence(self):
         return self.justification.confidence_score
 
     def add_support(self, reasons):
-        self.update(justification=self.justification.add_support(reasons))
+        self.justification.add_support(reasons)
         return self
     
     def add_opposition(self, reasons):
-        self.update(justification=self.justification.add_opposition(reasons))
+        self.justification.add_opposition(reasons)
         return self
     
     def get_support(self):
@@ -91,14 +94,13 @@ class Justification(mon.EmbeddedDocument):
         offset = len(flatlist)
         flatlist.extend(reasons)
         offsetlist.append(offset)
+        return self
 
     def add_support(self, reasons):
-        self.add_conjunction(reasons, self.support_flat, self.support_offsets)
-        return self
+        return self.add_conjunction(reasons, self.support_flat, self.support_offsets)
 
     def add_opposition(self, reasons):
-        self.add_conjunction(reasons, self.oppose_flat, self.oppose_offsets)
-        return self
+        return self.add_conjunction(reasons, self.oppose_flat, self.oppose_offsets)
     
     def get_disjunction(self, flatlist, offsetlist):
         conjunctions = []

@@ -1,9 +1,14 @@
 from csc.nl import get_nl
-import mongoengine as mon
+import mongokit as mon
+from csc.conceptdb import ConceptDBDocument, register
 
-class Dataset(mon.Document):
-    name = mon.StringField(required=True, primary_key=True)
-    language = mon.StringField()
+@register
+class Dataset(ConceptDBDocument):
+    structure = {
+        'name': unicode, # primary key?
+        'language': unicode,
+    }
+    required_fields = ['name']
     
     @property
     def nl():
@@ -11,3 +16,12 @@ class Dataset(mon.Document):
             raise ValueError("This Dataset is not associated with a natural language")
         return get_nl(self.language)
 
+@register
+class Relation(ConceptDBDocument):
+    structure = {
+        'name': unicode,
+        'arity': int,
+        'transitive': bool,
+        'symmetric': bool,
+    }
+    required_fields = ['name']

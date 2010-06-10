@@ -76,11 +76,12 @@ DATABASE_PORT = get_db_config('PORT', '')        # Set to empty string for defau
 DATABASE_OPTIONS = get_db_config('OPTIONS', {})
 
 # MongoDB setup
-import mongoengine
-mongoengine.connect('conceptnet',
-                    host=db_config['MONGODB_HOST'],
-                    username=db_config['MONGODB_USER'],
-                    password=db_config['MONGODB_PASSWORD'])
+from mongokit.connection import Connection
+from mongokit.database import Database
+mongo_connection = Connection(host=db_config['MONGODB_HOST'])
+mongo_database = Database(mongo_connection, 'conceptdb')
+mongo_database.authenticate(db_config['MONGODB_USER'],
+                            db_config['MONGODB_PASSWORD'])
 
 # Local time zone for this installation. All choices can be found here:
 # http://www.postgresql.org/docs/current/static/datetime-keywords.html#DATETIME-TIMEZONE-SET-TABLE

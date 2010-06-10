@@ -13,7 +13,7 @@ setup(  name='ConceptNet',
         packages=packages,
         include_package_data=False,
         namespace_packages = ['csc'],
-        install_requires=['csc-utils', 'django', 'south'],
+        install_requires=['csc-utils', 'django', 'mongoengine'],
         package_data={'csc.nl': ['mblem/*.pickle', 'en/*.txt', 'es/stop.txt',
                                  'hu/stop.txt', 'nl/stop.txt', 'pt/stop.txt']},
 
