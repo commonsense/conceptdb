@@ -1,36 +1,5 @@
 import mongoengine as mon
 
-
-class Reason(mon.Document):
-    name = mon.StringField(required=True, primary_key=True)
-    type = mon.StringField(required=True)
-    reliability = mon.FloatField(default=0.0)
-
-class JustifiedObject(object):
-    """
-    This mixin provides convenience methods for working with an object with
-    a `justification` field.
-
-    The methods here will mutate data but *not* save it to the DB.
-    """
-    def confidence(self):
-        return self.justification.confidence_score
-
-    def add_support(self, reasons):
-        self.justification.add_support(reasons)
-        return self
-    
-    def add_opposition(self, reasons):
-        self.justification.add_opposition(reasons)
-        return self
-    
-    def get_support(self):
-        return self.justification.get_support()
-    
-    def get_oppose(self):
-        return self.justification.get_oppose()
-
-
 class Justification(mon.EmbeddedDocument):
     """
     A Justification is a data structure that keeps track of evidence for
@@ -50,10 +19,12 @@ class Justification(mon.EmbeddedDocument):
         splitting the flat list at those indices gives the *n* conjunctions.
 
     """
-    support_flat = mon.ListField(mon.ReferenceField(Reason))
-    oppose_flat = mon.ListField(mon.ReferenceField(Reason))
+    support_flat = mon.ListField(mon.StringField()) # unevaluated Reason IDs
+    oppose_flat = mon.ListField(mon.StringField())  # unevaluated Reason IDs
     support_offsets = mon.ListField(mon.IntField())
     oppose_offsets = mon.ListField(mon.IntField())
+    support_weights = mon.ListField(mon.FloatField())
+    oppose_weights = mon.ListField(mon.FloatField())
     confidence_score = mon.FloatField(default=0.0)
 
     @staticmethod
@@ -87,37 +58,56 @@ class Justification(mon.EmbeddedDocument):
             assert isinstance(reason, Reason)
         for reason in self.oppose_flat:
             assert isinstance(reason, Reason)
+        assert len(self.support_flat) == len(self.support_weights)
+        assert len(self.oppose_flat) == len(self.oppose_weights)
 
-    def add_conjunction(self, reasons, flatlist, offsetlist):
+    def add_conjunction(self, weighted_reasons, flatlist, offsetlist, weightlist):
         for r in reasons:
             if not isinstance(r, Reason): raise TypeError
         offset = len(flatlist)
+        reasons = [reason for reason, weight in weighted_reasons]
+        weights = [weight for reason, weight in weighted_reasons]
         flatlist.extend(reasons)
+        weightlist.extend(weights)
         offsetlist.append(offset)
         return self
 
     def add_support(self, reasons):
-        return self.add_conjunction(reasons, self.support_flat, self.support_offsets)
+        return self.add_conjunction(reasons, self.support_flat, self.support_offsets, self.support_weights)
 
     def add_opposition(self, reasons):
-        return self.add_conjunction(reasons, self.oppose_flat, self.oppose_offsets)
+        return self.add_conjunction(reasons, self.oppose_flat, self.oppose_offsets, self.oppose_weights)
     
-    def get_disjunction(self, flatlist, offsetlist):
-        conjunctions = []
+    def get_disjunction(self, flatlist, offsetlist, weightlist):
+        disjunction = []
         prev_offset = 0
         for offset in offsetlist:
-            conjunctions.append(flatlist[prev_offset:offset])
+            disjunction.append(
+              (Reason.get(reason), weight)
+              for reason, weight in flatlist[prev_offset:offset]
+            )
             prev_offset = offset
-        conjunctions.append(flatlist[prev_offset:])
-        return conjunctions
+        disjunction.append(
+          (Reason.get(reason), weight)
+          for reason, weight in flatlist[prev_offset:]
+        )
+        return disjunction
     
     def get_support(self):
-        return self.get_disjunction(self.support, self.support_offsets)
+        return self.get_disjunction(self.support, self.support_offsets,
+                                    self.support_weights)
 
     def get_opposition(self):
-        return self.get_disjunction(self.oppose_flat, self.oppose_offsets)
+        return self.get_disjunction(self.oppose_flat, self.oppose_offsets,
+                                    self.support_weights)
     
     # Aliases
     add_oppose = add_opposition
     get_oppose = get_opposition
+
+class Reason(mon.Document):
+    name = mon.StringField(required=True, primary_key=True)
+    type = mon.StringField(required=True)
+    reliability = mon.FloatField(default=0.0)
+    justification = mon.EmbeddedDocumentField(Justification)
 

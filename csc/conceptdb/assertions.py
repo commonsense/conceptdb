@@ -1,19 +1,22 @@
 import mongoengine as mon
-from csc.conceptdb.justify import Justification, JustifiedObject, Reason
-from csc.conceptdb.metadata import Relation, Dataset
+from mongoengine.queryset import DoesNotExist
+from csc.conceptdb.justify import Justification, Reason
+from csc.conceptdb.metadata import Dataset
+from csc.conceptdb import ConceptDBDocument
 
-class Expression(mon.EmbeddedDocument, JustifiedObject):
+class Expression(mon.EmbeddedDocument):
     text = mon.StringField(required=True)
+    language = mon.StringField(required=True)
     justification = mon.EmbeddedDocumentField(Justification)
 
-class Assertion(mon.Document, JustifiedObject):
-    dataset = mon.StringField(required=True)
-    relation = mon.StringField(required=True)
-    arguments = mon.ListField(mon.StringField())
+class Assertion(ConceptDBDocument, mon.Document):
+    dataset = mon.StringField(required=True)     # reference to Dataset
+    relation = mon.StringField(required=True)    # concept ID
+    arguments = mon.ListField(mon.StringField()) # list(concept ID)
     argstr = mon.StringField()
-    complete = mon.IntField()
-    context = mon.StringField()
-    polarity = mon.IntField()
+    complete = mon.IntField()                    # boolean
+    context = mon.StringField()                  # concept ID
+    polarity = mon.IntField()                    # 1, 0, or -1
     expressions = mon.ListField(mon.EmbeddedDocumentField(Expression))
     justification = mon.EmbeddedDocumentField(Justification)
 
@@ -25,21 +28,10 @@ class Assertion(mon.Document, JustifiedObject):
                         'justification.confidence_score',
                        ]}
     
-    def save(self):
-        """
-        Keep track of this change in the log.
-
-        Could be less verbose, possibly?
-        """
-        is_new = (not self.id)
-        mon.Document.save(self)
-        Log.record(self, is_new)
-
     @staticmethod
     def make_arg_string(arguments):
         def sanitize(arg):
-            if arg is None: return ''
-            else: return arg.replace(',','_')
+            return arg.replace(',','_')
         return ','.join(sanitize(arg) for arg in arguments)
 
     @staticmethod
@@ -53,13 +45,13 @@ class Assertion(mon.Document, JustifiedObject):
                 polarity=polarity,
                 context=context
             )
-        except Assertion.DoesNotExist:
+        except DoesNotExist:
             a = Assertion(
                 dataset=dataset,
                 relation=relation,
                 arguments=arguments,
                 argstr=Assertion.make_arg_string(arguments),
-                complete=(None not in arguments),
+                complete=('*' not in arguments),
                 context=context,
                 polarity=polarity,
                 expressions=[],
@@ -82,7 +74,7 @@ class Assertion(mon.Document, JustifiedObject):
         # TODO: more consistency checks
         self.justification.check_consistency()
 
-class Sentence(mon.Document, JustifiedObject):
+class Sentence(ConceptDBDocument, mon.Document):
     text = mon.StringField(required=True)
     words = mon.ListField(mon.StringField())
     dataset = mon.StringField(required=True)
@@ -95,15 +87,14 @@ class Sentence(mon.Document, JustifiedObject):
             dataset = Dataset.objects.with_id(dataset)
         try:
             s = Sentence.objects.get(dataset=dataset, text=text)
-        except Sentence.DoesNotExist:
-            s = Sentence(
+        except DoesNotExist:
+            s = Sentence.create(
                 text=text,
                 dataset=dataset.name,
                 words=dataset.nl.normalize(text).split(),
                 justification=Justification.empty(),
                 derived_assertions=[]
             )
-            s.save()
         return s
     
     def add_assertion(self, assertion):

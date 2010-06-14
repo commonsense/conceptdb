@@ -1,25 +1,23 @@
-import mongokit as mon
+import mongoengine as mon
 from datetime import datetime
-from csc.conceptdb import ConceptDBDocument, register
 
-@register
-class Log(ConceptDBDocument):
-    structure = {
-        'object': None,
-        'action': unicode,
-        'data': dict,
-        'timestamp': datetime
-    }
-    defaults = {
-        'timestamp': datetime.utcnow
-    }
-
+class Log(mon.Document):
+    object = mon.GenericReferenceField(required=True)
+    action = mon.StringField()
+    data = mon.DictField()
+    timestamp = mon.DateTimeField(default=datetime.utcnow)
+    
     @staticmethod
     def add_entry(object, action, data):
-        Log.create(object=object, action=action, data=data)
+        return Log.create(object=object, action=action, data=data)
     
     @staticmethod
     def record(object, is_new=False):
         if is_new: action = u'update'
         else: action = u'create'
-        Log.add_entry(object, action, {'value': object})
+        return Log.add_entry(object, action, {'value': object})
+    
+    @classmethod
+    def create(cls, **fields):
+        object = cls(**fields)
+        object.save()
