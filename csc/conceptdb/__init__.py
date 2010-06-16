@@ -3,12 +3,33 @@ import csc.lib
 import mongoengine as mon
 import db_config
 
-mon.connect('conceptdb',
-            host=db_config.MONGODB_HOST,
-            username=db_config.MONGODB_USER,
-            password=db_config.MONGODB_PASSWORD)
+def connect_to_mongodb(dbname='conceptdb',
+                       host=db_config.MONGODB_HOST,
+                       username=db_config.MONGODB_USER,
+                       password=db_config.MONGODB_PASSWORD):
+    """
+    Connect to the given MongoDB database. By default, it will connect to
+    'conceptdb' with the settings given in db_config.py, but any of these
+    settings can be overridden.
+
+    For example, to use an expendable test database, use dbname='test'
+    instead.
+
+    The majority of the methods in csc.conceptdb will not work until
+    after you have used connect_to_mongodb successfully.
+    """
+    mon.connect(dbname, host=host, username=username, password=password)
 
 class ConceptDBDocument(object):
+    """
+    A base class that provides some common functionality beyond what the
+    mongoengine.Document class provides.
+
+    It would be much better Python style if this class inherited from
+    mongoengine.Document, but a bug in mongoengine prevents it from having
+    multiple levels of subclasses! Our workaround for now is that every
+    class of document should inherit from (ConceptDBDocument, mon.Document).
+    """
     @classmethod
     def get(self, key):
         return cls.objects.with_id(key)
