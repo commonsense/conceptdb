@@ -1,4 +1,3 @@
-db_config.py
 db_password.py
 *.pyc
 *.pyd

@@ -51,9 +51,9 @@ class Justification(mon.EmbeddedDocument):
 
     def check_consistency(self):
         for offset in self.support_offsets:
-            assert offset < len(self.support)
+            assert offset < len(self.support_flat)
         for offset in self.oppose_offsets:
-            assert offset < len(self.oppose)
+            assert offset < len(self.oppose_flat)
         for reason in self.support_flat:
             assert isinstance(reason, Reason)
         for reason in self.oppose_flat:
@@ -62,8 +62,6 @@ class Justification(mon.EmbeddedDocument):
         assert len(self.oppose_flat) == len(self.oppose_weights)
 
     def add_conjunction(self, weighted_reasons, flatlist, offsetlist, weightlist):
-        for r in reasons:
-            if not isinstance(r, Reason): raise TypeError
         offset = len(flatlist)
         reasons = [reason for reason, weight in weighted_reasons]
         weights = [weight for reason, weight in weighted_reasons]
@@ -82,19 +80,14 @@ class Justification(mon.EmbeddedDocument):
         disjunction = []
         prev_offset = 0
         for offset in offsetlist:
-            disjunction.append(
-              (Reason.get(reason), weight)
-              for reason, weight in flatlist[prev_offset:offset]
-            )
-            prev_offset = offset
-        disjunction.append(
-          (Reason.get(reason), weight)
-          for reason, weight in flatlist[prev_offset:]
-        )
+            disjunction.append(zip(flatlist[prev_offset:offset],
+                                   weightlist[prev_offset:offset]))
+        disjunction.append(zip(flatlist[prev_offset:],
+                               weightlist[prev_offset:]))
         return disjunction
     
     def get_support(self):
-        return self.get_disjunction(self.support, self.support_offsets,
+        return self.get_disjunction(self.support_flat, self.support_offsets,
                                     self.support_weights)
 
     def get_opposition(self):

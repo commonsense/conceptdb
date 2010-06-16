@@ -60,16 +60,13 @@ class Assertion(ConceptDBDocument, mon.Document):
             a.save()
         return a
 
-    def connect_to_sentence(dataset, text):
+    def connect_to_sentence(self, dataset, text):
         sent = Sentence.make(dataset, text)
         sent.add_assertion(self)
 
     def get_dataset(self):
         return Dataset.objects.with_id(self.dataset)
 
-    def get_relation(self):
-        return Relation.objects.with_id(self.relation)
-    
     def check_consistency(self):
         # TODO: more consistency checks
         self.justification.check_consistency()
