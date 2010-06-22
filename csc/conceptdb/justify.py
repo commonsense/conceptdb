@@ -43,14 +43,46 @@ class Justification(mon.EmbeddedDocument):
         )
 
     @staticmethod
-    def make():
+    def make(support, oppose):
         """
         Make a Justification data structure from a tree of supporting reasons
         and a tree of opposing reasons.
-        """
-        # TODO: not implemented yet!
-        raise NotImplementedError
 
+        support and oppose inputs consist of a list of lists of (Reason, weight) tuples.  
+        Method flattens them into mongodb friendly formats.
+        """
+        # TODO: implement confidence scores
+        support_flat = []
+        oppose_flat = []
+        support_offsets = []
+        oppose_offsets = []
+        support_weights = []
+        oppose_weights = []
+
+        for l in support:
+            support_offsets.append(len(l))
+            for r in l:
+                support_flat.append(r[0])
+                support_weights.append(r[1])
+
+        for(l in oppose):
+            oppose_offsets.append(len(l))
+            for r in l:
+                oppose_flat.append(r[0])
+                oppose_weights.append(r[1])
+
+        #I assume that since Justifications are embedded documents, there is no
+        #need to search for a duplicate before creating them?
+        j = Justification(
+            support_flat = support_flat,
+            oppose_flat = oppose_flat,
+            support_offsets = support_offsets,
+            oppose_offsets = oppose_offsets,
+            support_weights = support_weights,
+            oppose_weights = oppose_weights
+            )
+        return j
+            
     def check_consistency(self):
         for offset in self.support_offsets:
             assert offset < len(self.support_flat)
