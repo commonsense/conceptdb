@@ -1,7 +1,6 @@
 from csc.conceptdb.metadata import Dataset
 from csc import conceptdb
 from csc.conceptdb.assertions import Sentence
-from csc.nl import get_nl
 
 conceptdb.connect_to_mongodb('test')
 
@@ -22,8 +21,8 @@ def test_sentence():
     sentence1.justification
     sentence1.derived_assertions
 
-    #make the same sentence
-    sentence2 = Sentence.make('test/dataset test', "This is a test sentence.")
+    #make the same sentence, this time using dataset object instead of string
+    sentence2 = Sentence.make(dataset, "This is a test sentence.")
 
     #check that it was saved to the database
     assert sentence2.id is not None

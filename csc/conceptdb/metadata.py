@@ -11,4 +11,7 @@ class Dataset(ConceptDBDocument, mon.Document):
         if self.language is None:
             raise ValueError("This Dataset is not associated with a natural language")
         return get_nl(self.language)
-
+    
+    @staticmethod
+    def get(name):
+        return Dataset.objects.with_id(name)
