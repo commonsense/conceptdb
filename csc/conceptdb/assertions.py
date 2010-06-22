@@ -83,24 +83,24 @@ class Assertion(ConceptDBDocument, mon.Document):
 class Sentence(ConceptDBDocument, mon.Document):
     text = mon.StringField(required=True)
     words = mon.ListField(mon.StringField())
-    dataset = mon.StringField(required=True)
+    dataset = mon.ReferenceField(Dataset, required=True)
     justification = mon.EmbeddedDocumentField(Justification)
     derived_assertions = mon.ListField(mon.ReferenceField(Assertion))
 
     @staticmethod
     def make(dataset, text):
-        if isinstance(dataset, basestring):
+        if  isinstance(dataset, basestring):
             dataset = Dataset.objects.with_id(dataset)
         try:
             s = Sentence.objects.get(dataset=dataset, text=text)
         except DoesNotExist:
             s = Sentence.create(
                 text=text,
-                dataset=dataset.name,
+                dataset=dataset,
                 words=dataset.nl.normalize(text).split(),
                 justification=Justification.empty(),
                 derived_assertions=[]
-            )
+                )
         return s
     
     def add_assertion(self, assertion):

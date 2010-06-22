@@ -7,7 +7,7 @@ class Dataset(ConceptDBDocument, mon.Document):
     language = mon.StringField()
     
     @property
-    def nl():
+    def nl(self):
         if self.language is None:
             raise ValueError("This Dataset is not associated with a natural language")
         return get_nl(self.language)
