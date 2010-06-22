@@ -92,7 +92,7 @@ class Sentence(ConceptDBDocument, mon.Document):
         if  isinstance(dataset, basestring):
             datasetObj = Dataset.get(dataset)
         else:
-	        datasetObj = dataset
+            datasetObj = dataset
             dataset = datasetObj.name
         try:
             s = Sentence.objects.get(dataset=dataset, text=text)
