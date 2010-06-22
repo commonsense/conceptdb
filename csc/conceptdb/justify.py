@@ -37,6 +37,8 @@ class Justification(mon.EmbeddedDocument):
             oppose_flat=[],
             support_offsets=[],
             oppose_offsets=[],
+            support_weights=[],
+            oppose_weights=[],
             confidence_score=0.0
         )
 
