@@ -69,14 +69,14 @@ class Assertion(ConceptDBDocument, mon.Document):
 
     def check_consistency(self):
         # TODO: more consistency checks
-	assert (polarity == 1 or polarity == 0 or polarity == -1) #valid polarity
-	assert (complete == 1 or complete == 0) #valid boolean value
+        assert (polarity == 1 or polarity == 0 or polarity == -1) #valid polarity
+        assert (complete == 1 or complete == 0) #valid boolean value
 
-	#maybe there should be checks with relation to # of arguments
-	#how will more than 2 concepts as arguments work?  1 specific
-	#example was VSO, where 3 concepts would map to a relation
-	#I would put in a check which makes sure that there are the
-	#correct number of concepts for a given relation.  
+        #maybe there should be checks with relation to # of arguments
+        #how will more than 2 concepts as arguments work?  1 specific
+        #example was VSO, where 3 concepts would map to a relation
+        #I would put in a check which makes sure that there are the
+        #correct number of concepts for a given relation.  
 
         self.justification.check_consistency()
 

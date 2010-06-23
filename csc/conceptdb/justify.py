@@ -48,7 +48,7 @@ class Justification(mon.EmbeddedDocument):
         Make a Justification data structure from a tree of supporting reasons
         and a tree of opposing reasons.
 
-        support and oppose inputs consist of a list of lists of (Reason, weight) tuples.  
+        support and oppose inputs consist of a list of lists of (ReasonID, weight) tuples.  
         Method flattens them into mongodb friendly formats.
         """
         # TODO: implement confidence scores
@@ -58,18 +58,29 @@ class Justification(mon.EmbeddedDocument):
         oppose_offsets = []
         support_weights = []
         oppose_weights = []
-
+        
+        #go through support and oppose lists, building offsets, weights, flat
         for l in support:
-            support_offsets.append(len(l))
-            for r in l:
-                support_flat.append(r[0])
-                support_weights.append(r[1])
+            if(len(support_offsets) == 0):
+                support_offsets.append(len(l))
+            elif (len(support_offsets) == len(support) - 1):
+                pass #don't need to add last
+            else:
+                support_offsets.append(len(l) + support_offsets[-1])
+            flat, weight = zip(*l)
+            support_flat.extend(flat)
+            support_weights.extend(weight)
 
-        for(l in oppose):
-            oppose_offsets.append(len(l))
-            for r in l:
-                oppose_flat.append(r[0])
-                oppose_weights.append(r[1])
+        for l in oppose:
+            if(len(oppose_offsets) == 0):
+                oppose_offsets.append(len(l))
+            elif (len(oppose_offsets) == len(oppose) - 1):
+                pass
+            else:
+                oppose_offsets.append(len(l) + oppose_offsets[-1]) 
+            flat, weight = zip(*l)
+            oppose_flat.extend(flat)
+            oppose_weights.extend(weight)
 
         #I assume that since Justifications are embedded documents, there is no
         #need to search for a duplicate before creating them?
@@ -89,11 +100,14 @@ class Justification(mon.EmbeddedDocument):
         for offset in self.oppose_offsets:
             assert offset < len(self.oppose_flat)
         for reason in self.support_flat:
-            assert isinstance(reason, Reason)
+            #support flat stores reason IDs, not reason objects.  Check for presence in DB?
+            Reason.objects.get(reason)
         for reason in self.oppose_flat:
-            assert isinstance(reason, Reason)
+            Reason.objects.get(reason)
         assert len(self.support_flat) == len(self.support_weights)
         assert len(self.oppose_flat) == len(self.oppose_weights)
+
+        #TODO: will confidence score be in range 0.0 - 1.0?  Could be additional consistency check
 
     def add_conjunction(self, weighted_reasons, flatlist, offsetlist, weightlist):
         offset = len(flatlist)
@@ -137,4 +151,3 @@ class Reason(mon.Document):
     type = mon.StringField(required=True)
     reliability = mon.FloatField(default=0.0)
     justification = mon.EmbeddedDocumentField(Justification)
-
