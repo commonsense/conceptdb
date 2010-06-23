@@ -107,7 +107,7 @@ class Justification(mon.EmbeddedDocument):
         assert len(self.support_flat) == len(self.support_weights)
         assert len(self.oppose_flat) == len(self.oppose_weights)
 
-        #TODO: will confidence score be in range 0.0 - 1.0?  Could be additional consistency check
+        #TODO: will confidence score be in a given range?  Could be additional consistency check
 
     def add_conjunction(self, weighted_reasons, flatlist, offsetlist, weightlist):
         offset = len(flatlist)
@@ -130,6 +130,7 @@ class Justification(mon.EmbeddedDocument):
         for offset in offsetlist:
             disjunction.append(zip(flatlist[prev_offset:offset],
                                    weightlist[prev_offset:offset]))
+            prev_offset = offset
         disjunction.append(zip(flatlist[prev_offset:],
                                weightlist[prev_offset:]))
         return disjunction
@@ -140,7 +141,7 @@ class Justification(mon.EmbeddedDocument):
 
     def get_opposition(self):
         return self.get_disjunction(self.oppose_flat, self.oppose_offsets,
-                                    self.support_weights)
+                                    self.oppose_weights)
     
     # Aliases
     add_oppose = add_opposition
