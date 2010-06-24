@@ -1,6 +1,8 @@
-from csc.conceptdb.justify import Justification
+from csc.conceptdb.justify import Justification, Reason
 from csc import conceptdb
 from csc.conceptdb.metadata import Dataset
+
+conceptdb.connect_to_mongodb('test')
 
 def test_justification():
 
@@ -10,12 +12,18 @@ def test_justification():
     #make sure empty justification passes consistency checks
     empty.check_consistency()
     
+    #create dummy reasons (needed for consistency check)
+    #TODO: figure why consistency_check in justify.py isn't working like I think it should
+    for i in range(1,21):
+        reasonName = "reason" + str(i)        
+        Reason.create(name=reasonName, type = "test_type")
+     
     #create support/oppose lists of lists, inner lists (string, float) tuples representing
     #reason IDs and weights
 
-    support = [[("reason1", 0.1), ("reason2", 0.2), ("reason3", 0.3)], [("reason4", 0.4), 
-                ("reason5", 0.5), ("reason6", 0.6), ("reason7", 0.7)], [("reason8", 0.8), 
-                ("reason9", 0.9)]]
+    support = [[("reason1", 0.01), ("reason2", 0.02), ("reason3", 0.03)], [("reason4", 0.04), 
+                ("reason5", 0.05), ("reason6", 0.06), ("reason7", 0.07)], [("reason8", 0.08), 
+                ("reason9", 0.09)]]
 
     oppose = [[("reason10", 0.10), ("reason11", 0.11), ("reason12", 0.12)], [("reason13", 0.13),
             ("reason14", 0.14)]]
@@ -25,13 +33,13 @@ def test_justification():
     j = Justification.make(support, oppose)
 
     #check its consistency
-    #j.check_consistency()
+    j.check_consistency()
     
     #make sure flattened list components match expected
     assert j.support_flat == ["reason1", "reason2", "reason3", "reason4", "reason5", "reason6",
                                 "reason7", "reason8", "reason9"]
     assert j.support_offsets == [3, 7]
-    assert j.support_weights == [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+    assert j.support_weights == [0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09]
 
     assert j.oppose_flat == ["reason10", "reason11", "reason12", "reason13", "reason14"]
     assert j.oppose_offsets == [3]
@@ -52,7 +60,7 @@ def test_justification():
     assert j.support_flat == ["reason1", "reason2", "reason3", "reason4", "reason5", "reason6",
                                 "reason7", "reason8", "reason9", "reason15", "reason16", "reason17"]
     assert j.support_offsets == [3,7,9]
-    assert j.support_weights == [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.15, 0.16, 0.17]
+    assert j.support_weights == [0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.15, 0.16, 0.17]
 
     assert j.oppose_flat == ["reason10", "reason11", "reason12", "reason13", "reason14", "reason18",
                                 "reason19", "reason20"]
@@ -65,4 +73,5 @@ def test_justification():
     assert j.get_support() == support
     assert j.get_opposition() == oppose
 
-    
+    #clean up
+    Reason.drop_collection()

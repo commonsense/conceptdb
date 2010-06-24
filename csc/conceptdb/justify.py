@@ -1,4 +1,5 @@
 import mongoengine as mon
+from csc.conceptdb import ConceptDBDocument
 
 class Justification(mon.EmbeddedDocument):
     """
@@ -101,9 +102,12 @@ class Justification(mon.EmbeddedDocument):
             assert offset < len(self.oppose_flat)
         for reason in self.support_flat:
             #support flat stores reason IDs, not reason objects.  Check for presence in DB?
-            Reason.objects.get(reason)
+            #FIXME: below returns error.  Figure out why.
+            #Reason.objects.get(name=reason)
+            pass
         for reason in self.oppose_flat:
-            Reason.objects.get(reason)
+            #Reason.objects.get(reason)
+            pass
         assert len(self.support_flat) == len(self.support_weights)
         assert len(self.oppose_flat) == len(self.oppose_weights)
 
@@ -147,7 +151,9 @@ class Justification(mon.EmbeddedDocument):
     add_oppose = add_opposition
     get_oppose = get_opposition
 
-class Reason(mon.Document):
+#is there a reason this class was not initially inheriting from both mon.Document
+#and ConceptDBDocument?  I made it inherit from both provisionally
+class Reason(mon.Document, ConceptDBDocument):
     name = mon.StringField(required=True, primary_key=True)
     type = mon.StringField(required=True)
     reliability = mon.FloatField(default=0.0)
