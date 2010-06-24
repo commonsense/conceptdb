@@ -38,8 +38,6 @@ def test_justification():
     assert j.oppose_weights == [0.10, 0.11, 0.12, 0.13, 0.14]
 
     #make sure get_support, get_opposition equal original 
-    print(j.get_support())
-    print(support)
     assert j.get_support() == support
     assert j.get_opposition() == oppose
 
@@ -62,7 +60,9 @@ def test_justification():
     assert j.oppose_weights == [0.10, 0.11, 0.12, 0.13, 0.14, 0.18, 0.19, 0.20]
 
     #make sure get_support, get_opposition return correctly
-    assert j.get_support() == support.append(newSupport)
-    assert j.get_opposition() == oppose.append(newOppose)
+    support.append(newSupport)
+    oppose.append(newOppose)
+    assert j.get_support() == support
+    assert j.get_opposition() == oppose
 
     
