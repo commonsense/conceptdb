@@ -36,6 +36,8 @@ class Assertion(ConceptDBDocument, mon.Document):
 
     @staticmethod
     def make(dataset, relation, arguments, polarity=1, context=None):
+        #TODO: should this accept dataset object and convert to string if necessary,
+        #like sentence does?
         try:
             a = Assertion.objects.get(
                 dataset=dataset,
@@ -57,7 +59,7 @@ class Assertion(ConceptDBDocument, mon.Document):
                 expressions=[],
                 justification=Justification.empty()
             )
-            a.save()
+            a.save()#TODO: is there a reason that we're not using Assertion.create rather than saving after?
         return a
 
     def connect_to_sentence(self, dataset, text):
@@ -107,5 +109,6 @@ class Sentence(ConceptDBDocument, mon.Document):
         return s
     
     def add_assertion(self, assertion):
+        #TODO: should there be a check to make sure the same assertion is not added twice here?
         self.update(derived_assertions=self.derived_assertions + [assertion])
 
