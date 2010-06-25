@@ -10,14 +10,14 @@ def test_justification():
     empty = Justification.empty()
 
     #make sure empty justification passes consistency checks
-    empty.check_consistency()
-    
+    empty.check_consistency()    
+
     #create dummy reasons (needed for consistency check)
     #TODO: figure why consistency_check in justify.py isn't working like I think it should
     for i in range(1,21):
         reasonName = "reason" + str(i)        
         Reason.create(name=reasonName, type = "test_type")
-     
+           
     #create support/oppose lists of lists, inner lists (string, float) tuples representing
     #reason IDs and weights
 

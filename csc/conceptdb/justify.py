@@ -102,12 +102,9 @@ class Justification(mon.EmbeddedDocument):
             assert offset < len(self.oppose_flat)
         for reason in self.support_flat:
             #support flat stores reason IDs, not reason objects.  Check for presence in DB?
-            #FIXME: below returns error.  Figure out why.
-            #Reason.objects.get(name=reason)
-            pass
+            Reason.objects.get(name=reason)
         for reason in self.oppose_flat:
-            #Reason.objects.get(reason)
-            pass
+            Reason.objects.get(name=reason)
         assert len(self.support_flat) == len(self.support_weights)
         assert len(self.oppose_flat) == len(self.oppose_weights)
 
