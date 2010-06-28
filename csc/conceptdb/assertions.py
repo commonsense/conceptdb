@@ -38,7 +38,10 @@ class Assertion(ConceptDBDocument, mon.Document):
     def make(dataset, relation, arguments, polarity=1, context=None):
         #TODO: should this accept dataset object and convert to string if necessary,
         #like sentence does?
+        #FIXME: seems to be creating duplicates in database
         try:
+            print("in try")
+            print("new ver")
             a = Assertion.objects.get(
                 dataset=dataset,
                 relation=relation,
@@ -48,7 +51,8 @@ class Assertion(ConceptDBDocument, mon.Document):
                 context=context
             )
         except DoesNotExist:
-            a = Assertion(
+            print("in except")
+            a = Assertion.create(
                 dataset=dataset,
                 relation=relation,
                 arguments=arguments,
@@ -59,7 +63,6 @@ class Assertion(ConceptDBDocument, mon.Document):
                 expressions=[],
                 justification=Justification.empty()
             )
-            a.save()#TODO: is there a reason that we're not using Assertion.create rather than saving after?
         return a
 
     def connect_to_sentence(self, dataset, text):
