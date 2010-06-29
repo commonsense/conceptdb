@@ -38,7 +38,7 @@ class Assertion(ConceptDBDocument, mon.Document):
     def make(dataset, relation, arguments, polarity=1, context=None):
         #TODO: should this accept dataset object and convert to string if necessary,
         #like sentence does?
-        #FIXME: seems to be creating duplicates in database
+        #FIXME: method is creating duplicates in database
         try:
             print("in try")
             print("new ver")
