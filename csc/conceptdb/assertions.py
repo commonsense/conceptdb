@@ -10,13 +10,13 @@ class Expression(mon.EmbeddedDocument):
     justification = mon.EmbeddedDocumentField(Justification)
 
 class Assertion(ConceptDBDocument, mon.Document):
-    dataset = mon.StringField(required=True)     # reference to Dataset
-    relation = mon.StringField(required=True)    # concept ID
+    dataset = mon.StringField(required=True) # reference to Dataset
+    relation = mon.StringField(required=True) # concept ID
     arguments = mon.ListField(mon.StringField()) # list(concept ID)
     argstr = mon.StringField()
-    complete = mon.IntField()                    # boolean
-    context = mon.StringField()                  # concept ID
-    polarity = mon.IntField()                    # 1, 0, or -1
+    complete = mon.IntField() # boolean
+    context = mon.StringField() # concept ID
+    polarity = mon.IntField() # 1, 0, or -1
     expressions = mon.ListField(mon.EmbeddedDocumentField(Expression))
     justification = mon.EmbeddedDocumentField(Justification)
 
@@ -36,12 +36,7 @@ class Assertion(ConceptDBDocument, mon.Document):
 
     @staticmethod
     def make(dataset, relation, arguments, polarity=1, context=None):
-        #TODO: should this accept dataset object and convert to string if necessary,
-        #like sentence does?
-        #FIXME: seems to be creating duplicates in database
         try:
-            print("in try")
-            print("new ver")
             a = Assertion.objects.get(
                 dataset=dataset,
                 relation=relation,
@@ -51,8 +46,7 @@ class Assertion(ConceptDBDocument, mon.Document):
                 context=context
             )
         except DoesNotExist:
-            print("in except")
-            a = Assertion.create(
+            a = Assertion(
                 dataset=dataset,
                 relation=relation,
                 arguments=arguments,
@@ -63,6 +57,7 @@ class Assertion(ConceptDBDocument, mon.Document):
                 expressions=[],
                 justification=Justification.empty()
             )
+            a.save()
         return a
 
     def connect_to_sentence(self, dataset, text):
@@ -78,10 +73,10 @@ class Assertion(ConceptDBDocument, mon.Document):
         assert (complete == 1 or complete == 0) #valid boolean value
 
         #maybe there should be checks with relation to # of arguments
-        #how will more than 2 concepts as arguments work?  1 specific
+        #how will more than 2 concepts as arguments work? 1 specific
         #example was VSO, where 3 concepts would map to a relation
         #I would put in a check which makes sure that there are the
-        #correct number of concepts for a given relation.  
+        #correct number of concepts for a given relation.
 
         self.justification.check_consistency()
 
@@ -94,7 +89,7 @@ class Sentence(ConceptDBDocument, mon.Document):
 
     @staticmethod
     def make(dataset, text):
-        if  isinstance(dataset, basestring):
+        if isinstance(dataset, basestring):
             datasetObj = Dataset.get(dataset)
         else:
             datasetObj = dataset
@@ -112,6 +107,4 @@ class Sentence(ConceptDBDocument, mon.Document):
         return s
     
     def add_assertion(self, assertion):
-        #TODO: should there be a check to make sure the same assertion is not added twice here?
         self.update(derived_assertions=self.derived_assertions + [assertion])
-
