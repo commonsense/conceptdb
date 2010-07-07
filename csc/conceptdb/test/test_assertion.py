@@ -5,6 +5,9 @@ from csc import conceptdb
 conceptdb.connect_to_mongodb('test')
 
 def test_assertion():
+    # fresh start
+    Dataset.drop_collection()
+    Assertion.drop_collection() 
     
     #create test dataset
     dataset = Dataset.create(language = 'en', name = 'test/dataset test')

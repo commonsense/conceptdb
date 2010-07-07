@@ -40,7 +40,6 @@ class Assertion(ConceptDBDocument, mon.Document):
             a = Assertion.objects.get(
                 dataset=dataset,
                 relation=relation,
-                arguments=arguments,
                 argstr=Assertion.make_arg_string(arguments),
                 polarity=polarity,
                 context=context
