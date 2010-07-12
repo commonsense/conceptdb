@@ -4,7 +4,7 @@ from csc.conceptdb.metadata import Dataset
 conceptdb.connect_to_mongodb('test')
 
 def test_dataset():
-    dataset = Dataset.create(language='en', name='test/dataset test')
+    dataset = Dataset.create(language='en', name='/data/test')
     
     # Make sure it was saved to the database
     assert dataset.id is not None

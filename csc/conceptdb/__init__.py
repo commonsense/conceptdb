@@ -40,6 +40,21 @@ class ConceptDBDocument(object):
         object.save()
         return object
 
+    def update(self, **fields):
+        query = self.__class__.objects(id=self.id)
+        update = {}
+        for key, value in fields.items():
+            update['set__'+key] = value
+        return query.update_one(**update)
+
+    def append(self, fieldname, value):
+        query = self.__class__.objects(id=self.id)
+        update = {
+            'push__'+fieldname: value
+        }
+        return query.update_one(**update)
+
+
     def serialize(self):
         d = {}
         for field in self._fields:

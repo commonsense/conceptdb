@@ -1,15 +1,11 @@
 import mongoengine as mon
 from mongoengine.queryset import DoesNotExist
-from csc.conceptdb.justify import Justification, Reason
+from csc.conceptdb.justify import Justification, Reason, ConceptDBJustified
+from csc.conceptdb.expression import Expression
 from csc.conceptdb.metadata import Dataset
 from csc.conceptdb import ConceptDBDocument
 
-class Expression(mon.EmbeddedDocument):
-    text = mon.StringField(required=True)
-    language = mon.StringField(required=True)
-    justification = mon.EmbeddedDocumentField(Justification)
-
-class Assertion(ConceptDBDocument, mon.Document):
+class Assertion(ConceptDBJustified, mon.Document):
     dataset = mon.StringField(required=True) # reference to Dataset
     relation = mon.StringField(required=True) # concept ID
     arguments = mon.ListField(mon.StringField()) # list(concept ID)
@@ -78,8 +74,11 @@ class Assertion(ConceptDBDocument, mon.Document):
         #correct number of concepts for a given relation.
 
         self.justification.check_consistency()
+    
+    def add_expression(self, expr):
+        self.append('expressions', expr)
 
-class Sentence(ConceptDBDocument, mon.Document):
+class Sentence(ConceptDBJustified, mon.Document):
     text = mon.StringField(required=True)
     words = mon.ListField(mon.StringField())
     dataset = mon.StringField(required=True)
@@ -106,4 +105,5 @@ class Sentence(ConceptDBDocument, mon.Document):
         return s
     
     def add_assertion(self, assertion):
-        self.update(derived_assertions=self.derived_assertions + [assertion])
+        self.append('derived_assertions', assertion)
+

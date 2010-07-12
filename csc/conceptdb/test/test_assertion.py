@@ -1,4 +1,4 @@
-from csc.conceptdb.assertions import Assertion
+from csc.conceptdb.assertion import Assertion
 from csc.conceptdb.metadata import Dataset
 from csc import conceptdb
 
@@ -10,10 +10,10 @@ def test_assertion():
     Assertion.drop_collection() 
     
     #create test dataset
-    dataset = Dataset.create(language = 'en', name = 'test/dataset test')
+    dataset = Dataset.create(language = 'en', name = '/data/test')
 
     #make a test assertion
-    a1 = Assertion.make('test/dataset test',"isA",["assertion", "test"])
+    a1 = Assertion.make('/data/test',"/rel/IsA",["/concept/test/assertion", "/concept/test/test"])
 
     #verify that it exists in the database
     assert a1.id is not None
@@ -30,12 +30,13 @@ def test_assertion():
     a1.justification    
 
     #make an identical test assertion
-    a2 = Assertion.make('test/dataset test',"isA",["assertion", "test"])
+    a2 = Assertion.make('/data/test',"/rel/IsA",["/concept/test/assertion", "/concept/test/test"])
 
     #verify that it exists in the database
     assert a2.id is not None
     print a2.id
     print a1.id
+    print a1.argstr
     
     #verify that attributes are readable
     a2.dataset
@@ -47,7 +48,6 @@ def test_assertion():
     a2.polarity
     a2.expressions
     a2.justification
-    print ("about to check")
     #check that all checked attributes are the same
     assert a1.dataset == a2.dataset
     assert a1.relation == a2.relation
@@ -62,4 +62,3 @@ def test_assertion():
     Dataset.drop_collection()
     Assertion.drop_collection() 
  
-    

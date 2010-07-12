@@ -148,10 +148,20 @@ class Justification(mon.EmbeddedDocument):
     add_oppose = add_opposition
     get_oppose = get_opposition
 
-#is there a reason this class was not initially inheriting from both mon.Document
-#and ConceptDBDocument?  I made it inherit from both provisionally
 class Reason(mon.Document, ConceptDBDocument):
     name = mon.StringField(required=True, primary_key=True)
     type = mon.StringField(required=True)
     reliability = mon.FloatField(default=0.0)
     justification = mon.EmbeddedDocumentField(Justification)
+
+class ConceptDBJustified(ConceptDBDocument):
+    """
+    Documents that inherit from this gain some convenience methods for updating
+    their Justifications.
+    """
+    def add_support(self):
+        self.justification = self.justification.add_support(self)
+
+    def add_oppose(self):
+        self.justification = self.justification.add_oppose(self)
+
