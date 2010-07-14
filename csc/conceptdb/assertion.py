@@ -31,7 +31,9 @@ class Assertion(ConceptDBJustified, mon.Document):
         return ','.join(sanitize(arg) for arg in arguments)
 
     @staticmethod
-    def make(dataset, relation, arguments, polarity=1, context=None):
+    def make(dataset, relation, arguments, polarity=1, context=None,
+             reasons=None):
+        needs_save = False
         try:
             a = Assertion.objects.get(
                 dataset=dataset,
@@ -52,7 +54,11 @@ class Assertion(ConceptDBJustified, mon.Document):
                 expressions=[],
                 justification=Justification.empty()
             )
-            a.save()
+            needs_save = True
+        if reasons is not None:
+            a.add_support(reasons)
+            needs_save = True
+        if needs_save: a.save()
         return a
 
     def connect_to_sentence(self, dataset, text):

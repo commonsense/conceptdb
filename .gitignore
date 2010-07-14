@@ -2,7 +2,6 @@ db_password.py
 *.pyc
 *.pyd
 *.so
-build
 *.egg-info
 dist
 pip-log.txt
