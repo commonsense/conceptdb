@@ -30,6 +30,10 @@ class Assertion(ConceptDBJustified, mon.Document):
             return arg.replace(',','_')
         return ','.join(sanitize(arg) for arg in arguments)
 
+    @property
+    def name(self):
+        return '/assertion/%s' % self._id
+
     @staticmethod
     def make(dataset, relation, arguments, polarity=1, context=None,
              reasons=None):
@@ -91,8 +95,15 @@ class Sentence(ConceptDBJustified, mon.Document):
     justification = mon.EmbeddedDocumentField(Justification)
     derived_assertions = mon.ListField(mon.ReferenceField(Assertion))
 
+    meta = {'indexes': ['dataset', 'words',
+                        'justification.support_flat',
+                        'justification.oppose_flat',
+                        'justification.confidence_score',
+                       ]}
+    
     @staticmethod
-    def make(dataset, text):
+    def make(dataset, text, reasons=[]):
+        needs_save = False
         if isinstance(dataset, basestring):
             datasetObj = Dataset.get(dataset)
         else:
@@ -101,13 +112,18 @@ class Sentence(ConceptDBJustified, mon.Document):
         try:
             s = Sentence.objects.get(dataset=dataset, text=text)
         except DoesNotExist:
-            s = Sentence.create(
+            s = Sentence(
                 text=text,
                 dataset=dataset,
                 words=datasetObj.nl.normalize(text).split(),
                 justification=Justification.empty(),
                 derived_assertions=[]
                )
+            needs_save = True
+        if reasons is not None:
+            s.add_support(reasons)
+            needs_save = True
+        if needs_save: s.save()
         return s
     
     def add_assertion(self, assertion):

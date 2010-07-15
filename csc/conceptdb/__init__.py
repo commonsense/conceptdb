@@ -2,6 +2,7 @@ __import__('os').environ.setdefault('DJANGO_SETTINGS_MODULE', 'csc.django_settin
 import csc.lib
 import mongoengine as mon
 import db_config
+from csc.conceptdb.log import Log
 
 def connect_to_mongodb(dbname='conceptdb',
                        host=db_config.MONGODB_HOST,
@@ -45,24 +46,35 @@ class ConceptDBDocument(object):
         update = {}
         for key, value in fields.items():
             update['set__'+key] = value
-        return query.update_one(**update)
+        result = query.update_one(**update)
+        return result
 
     def append(self, fieldname, value):
         query = self.__class__.objects(id=self.id)
         update = {
             'push__'+fieldname: value
         }
-        return query.update_one(**update)
-
+        result = query.update_one(**update)
+        return result
+    
+    def save(self):
+        self.check_consistency()
+        result = mon.Document.save(self)
+        Log.record(self)
+        return result
 
     def serialize(self):
+        return self.serialize_inner(self)
+
+    def serialize_inner(self, obj):
         d = {}
-        for field in self._fields:
-            value = getattr(self, field)
-            if isinstance(value, ConceptDBDocument):
-                value = value.serialize()
+        for field in obj._fields:
+            value = getattr(obj, field)
+            if isinstance(value, (mon.Document, mon.EmbeddedDocument)):
+                value = self.serialize_inner(value)
             d[field] = value
         return d
+
 
     def __repr__(self):
         assignments = ['%s=%r' % (key, value) for key, value in self.serialize().items()]

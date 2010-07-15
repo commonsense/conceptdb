@@ -1,7 +1,6 @@
 import mongoengine as mon
 from csc.conceptdb import ConceptDBDocument
-
-EXT_REASON_TYPES = ['root', 'admin', 'site', 'contributor', 'algorithm']
+from csc.conceptdb.metadata import ExternalReason
 
 class Justification(mon.EmbeddedDocument):
     """
@@ -103,17 +102,29 @@ class Justification(mon.EmbeddedDocument):
         for offset in self.oppose_offsets:
             assert offset < len(self.oppose_flat)
         for reason in self.support_flat:
-            #support flat stores reason IDs, not reason objects.  Check for presence in DB?
-            lookup(reason)
-
+            reasonObj = lookup_reason(reason)
+            reasonObj.check_consistency()
         for reason in self.oppose_flat:
-            lookup(reason)
+            reasonObj = lookup_reason(reason)
+            reasonObj.check_consistency()
         assert len(self.support_flat) == len(self.support_weights)
         assert len(self.oppose_flat) == len(self.oppose_weights)
 
         #TODO: will confidence score be in a given range?  Could be additional consistency check
 
-    def add_conjunction(self, weighted_reasons, flatlist, offsetlist, weightlist):
+    def add_conjunction(self, reasons, flatlist, offsetlist, weightlist):
+        def transform_reason(r):
+            if isinstance(r, tuple):
+                reason, weight = r
+            else:
+                reason = r
+                weight = 1.0
+            if isinstance(reason, ConceptDBDocument):
+                reason = reason.name
+            assert isinstance(reason, basestring)
+            return (reason, weight)
+
+        weighted_reason = [transform_reason(r) for r in reasons]
         offset = len(flatlist)
         reasons = [reason for reason, weight in weighted_reasons]
         weights = [weight for reason, weight in weighted_reasons]
@@ -162,35 +173,19 @@ class ConceptDBJustified(ConceptDBDocument):
     def add_oppose(self, reasons):
         self.justification = self.justification.add_oppose(reasons)
 
-def lookup(reasonID):
-    parts = reasonID[1:].split('/')
-    if parts[0] == 'assertion':
-        a_id = parts[1]
-        return assertion.objects.with_id(a_id)
-    elif parts[0] in EXT_REASON_TYPES:
-        return ExternalReason.objects.withID(reasonID)
+def lookup_reason(reason):
+    if isinstance(reason, ConceptDBDocument):
+        return reason
     else:
-        raise ValueError("I don't know what kind of reason %r is" % parts[1])
-
-class ExternalReason(mon.Document, ConceptDBJustified):
-    """
-    An ExternalReason is a unit of justification. It indicates a reason to
-    believe some ConceptDBJustified object, when that reason is represented
-    outside of ConceptDB.
-
-    Assertions are not the same as Reasons, but they may also be used as
-    units of justification. Use justify.lookup() to get the appropriate
-    Assertion or Reason from an ID.
-    """
-    name = mon.StringField(required=True, primary_key=True)
-    reliability = mon.FloatField(default=0.0)
-    justification = mon.EmbeddedDocumentField(Justification)
-
-    def check_consistency(self):
-        assert self.name.startswith('/')
-        assert self.type() in EXT_REASON_TYPES
-        self.justification.check_consistency()
-    
-    def type(self):
-        return self.name.split('/')[1]
+        assert isinstance(reason, basestring)
+        if reason.startswith('/assertion/'):
+            from csc.conceptdb.assertion import Assertion
+            parts = reason.split('/')
+            a_id = parts[2]
+            assertion = Assertion.objects.with_id(a_id)
+            return assertion
+        elif reason.startswith('/data/'):
+            return ExternalReason.objects.with_id(reason)
+        else:
+            raise NameError("I don't know what kind of reason %s is" % reason)
 

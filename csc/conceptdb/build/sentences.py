@@ -3,18 +3,17 @@ from csc.conceptnet.models import Event
 from csc.corpus.models import Sentence
 from csc import conceptdb
 from csc.conceptdb import assertion
-from csc.conceptdb.metadata import Dataset
+from csc.conceptdb.metadata import Dataset, ExternalReason
 
 import logging
-log = logging.getLogger('build.conceptnet')
+log = logging.getLogger('build.sentences')
 logging.basicConfig(level=logging.DEBUG)
 
 #CONCEPT_ROOT = '/concept/lemma/en/conceptnet/4/'
 CONTRIBUTOR_ROOT = '/contributor/omcs/'
 RELATION_ROOT = '/rel/conceptnet/'
 ACTIVITY_ROOT = '/activity/old/'
-DATASET_TEMPLATE = '/data/conceptnet/5/%s/devel'
-
+DATASET_ROOT = '/data/conceptnet/5/'
 # sources that do not lead to sentences we should try to parse
 BAD_ACTIVITIES = ['unknown', 'nosetests', 'junk', 'commons2_reject', 'is-a cleanup']
 
@@ -25,14 +24,15 @@ def import_sentences():
         if activity in BAD_ACTIVITIES: continue
         if sent.language.id == 'pt': continue # our portuguese is broken
         if sent.language.id == 'zh-hant': continue # start Chinese over
-        dataset = Dataset.make(DATASET_TEMPLATE % sent.language.id,
+        
+        dataset = Dataset.make(DATASET_ROOT+sent.language.id,
                                sent.language.id)
-        act_reason = ACTIVITY_ROOT+activity.replace(' ', '_')
-        contrib_reason = CONTRIBUTOR_ROOT+sent.creator.username
-        justification = [(act_reason, 1.0), (contrib_reason, 1.0)]
-        newsent = assertion.Sentence.make(dataset, sent.text)
-        newsent.add_support(justification)
-        newsent.save()
+        root = dataset.get_root_reason()
+        site = root.derived_reason('/site/omcs')
+        act_reason = site.derived_reason(ACTIVITY_ROOT+activity.replace(' ', '_'))
+        contrib_reason = site.derived_reason(CONTRIBUTOR_ROOT+sent.creator.username)
+        justification = [act_reason, contrib_reason]
+        newsent = assertion.Sentence.make(dataset, sent.text, justification)
         log.info(str(newsent))
 
 if __name__ == '__main__':

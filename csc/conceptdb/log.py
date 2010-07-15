@@ -15,7 +15,7 @@ class Log(mon.Document):
     def record(object, is_new=False):
         if is_new: action = u'update'
         else: action = u'create'
-        return Log.add_entry(object, action, {'value': object})
+        return Log.add_entry(object, action, {'value': object.serialize()})
     
     @classmethod
     def create(cls, **fields):
