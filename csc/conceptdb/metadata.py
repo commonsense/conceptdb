@@ -15,3 +15,10 @@ class Dataset(ConceptDBDocument, mon.Document):
     @staticmethod
     def get(name):
         return Dataset.objects.with_id(name)
+    
+    @staticmethod
+    def make(name, language):
+        d = Dataset.objects.get_or_create(name=name,
+              defaults=dict(language=language))
+        return d
+    

@@ -1,6 +1,6 @@
 import mongoengine as mon
 from mongoengine.queryset import DoesNotExist
-from csc.conceptdb.justify import Justification, Reason, ConceptDBJustified
+from csc.conceptdb.justify import Justification, ConceptDBJustified
 from csc.conceptdb.expression import Expression
 from csc.conceptdb.metadata import Dataset
 from csc.conceptdb import ConceptDBDocument

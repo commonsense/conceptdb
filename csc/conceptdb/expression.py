@@ -1,6 +1,6 @@
 import mongoengine as mon
 from mongoengine.queryset import DoesNotExist
-from csc.conceptdb.justify import Justification, Reason
+from csc.conceptdb.justify import Justification
 
 BLANK = '*'
 class Expression(mon.EmbeddedDocument):

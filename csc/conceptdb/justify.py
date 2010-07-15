@@ -151,6 +151,17 @@ class Justification(mon.EmbeddedDocument):
     add_oppose = add_opposition
     get_oppose = get_opposition
 
+class ConceptDBJustified(ConceptDBDocument):
+    """
+    Documents that inherit from this gain some convenience methods for updating
+    their Justifications.
+    """
+    def add_support(self, reasons):
+        self.justification = self.justification.add_support(reasons)
+
+    def add_oppose(self, reasons):
+        self.justification = self.justification.add_oppose(reasons)
+
 def lookup(reasonID):
     parts = reasonID[1:].split('/')
     if parts[0] == 'assertion':
@@ -182,15 +193,4 @@ class ExternalReason(mon.Document, ConceptDBJustified):
     
     def type(self):
         return self.name.split('/')[1]
-
-class ConceptDBJustified(ConceptDBDocument):
-    """
-    Documents that inherit from this gain some convenience methods for updating
-    their Justifications.
-    """
-    def add_support(self, reasons):
-        self.justification = self.justification.add_support(self, reasons)
-
-    def add_oppose(self, reasons):
-        self.justification = self.justification.add_oppose(self, reasons)
 
