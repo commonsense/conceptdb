@@ -1,5 +1,7 @@
 from csc.nl import get_nl
 from csc.conceptdb import ConceptDBDocument
+from csc.conceptdb.justify import Justification, ConceptDBJustified
+from mongoengine.queryset import DoesNotExist
 import mongoengine as mon
 
 class Dataset(ConceptDBDocument, mon.Document):
@@ -11,10 +13,6 @@ class Dataset(ConceptDBDocument, mon.Document):
         if self.language is None:
             raise ValueError("This Dataset is not associated with a natural language")
         return get_nl(self.language)
-    
-    @staticmethod
-    def get(name):
-        return Dataset.objects.with_id(name)
     
     @staticmethod
     def make(name, language):
@@ -57,7 +55,7 @@ class ExternalReason(mon.Document, ConceptDBJustified):
     different ConceptDBs independently.
 
     Assertions are not the same as Reasons, but they may also be used as
-    units of justification. Use justify.lookup() to get the appropriate
+    units of justification. Use justify.lookup_reason() to get the appropriate
     Assertion or Reason from an ID.
     """
     name = mon.StringField(required=True, primary_key=True)

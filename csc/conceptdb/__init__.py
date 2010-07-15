@@ -1,5 +1,4 @@
 __import__('os').environ.setdefault('DJANGO_SETTINGS_MODULE', 'csc.django_settings')
-import csc.lib
 import mongoengine as mon
 import db_config
 from csc.conceptdb.log import Log
@@ -32,7 +31,7 @@ class ConceptDBDocument(object):
     class of document should inherit from (ConceptDBDocument, mon.Document).
     """
     @classmethod
-    def get(self, key):
+    def get(cls, key):
         return cls.objects.with_id(key)
 
     @classmethod

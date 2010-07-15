@@ -1,6 +1,5 @@
 import mongoengine as mon
 from csc.conceptdb import ConceptDBDocument
-from csc.conceptdb.metadata import ExternalReason
 
 class Justification(mon.EmbeddedDocument):
     """
@@ -124,7 +123,7 @@ class Justification(mon.EmbeddedDocument):
             assert isinstance(reason, basestring)
             return (reason, weight)
 
-        weighted_reason = [transform_reason(r) for r in reasons]
+        weighted_reasons = [transform_reason(r) for r in reasons]
         offset = len(flatlist)
         reasons = [reason for reason, weight in weighted_reasons]
         weights = [weight for reason, weight in weighted_reasons]
@@ -174,6 +173,7 @@ class ConceptDBJustified(ConceptDBDocument):
         self.justification = self.justification.add_oppose(reasons)
 
 def lookup_reason(reason):
+    from csc.conceptdb.metadata import ExternalReason
     if isinstance(reason, ConceptDBDocument):
         return reason
     else:

@@ -1,5 +1,4 @@
 import mongoengine as mon
-from mongoengine.queryset import DoesNotExist
 from csc.conceptdb.justify import Justification
 
 BLANK = '*'
