@@ -101,11 +101,9 @@ class Justification(mon.EmbeddedDocument):
         for offset in self.oppose_offsets:
             assert offset < len(self.oppose_flat)
         for reason in self.support_flat:
-            reasonObj = lookup_reason(reason)
-            reasonObj.check_consistency()
+            lookup_reason(reason)
         for reason in self.oppose_flat:
-            reasonObj = lookup_reason(reason)
-            reasonObj.check_consistency()
+            lookup_reason(reason)
         assert len(self.support_flat) == len(self.support_weights)
         assert len(self.oppose_flat) == len(self.oppose_weights)
 
@@ -123,7 +121,11 @@ class Justification(mon.EmbeddedDocument):
             assert isinstance(reason, basestring)
             return (reason, weight)
 
+
         weighted_reasons = [transform_reason(r) for r in reasons]
+        dis = self.get_disjunction(flatlist, offsetlist, weightlist)
+        if weighted_reasons in dis: return self
+
         offset = len(flatlist)
         reasons = [reason for reason, weight in weighted_reasons]
         weights = [weight for reason, weight in weighted_reasons]

@@ -1,5 +1,6 @@
 __import__('os').environ.setdefault('DJANGO_SETTINGS_MODULE', 'csc.django_settings')
 import mongoengine as mon
+from mongoengine.queryset import DoesNotExist
 import db_config
 from csc.conceptdb.log import Log
 
@@ -32,7 +33,9 @@ class ConceptDBDocument(object):
     """
     @classmethod
     def get(cls, key):
-        return cls.objects.with_id(key)
+        result = cls.objects.with_id(key)
+        if result is None: raise DoesNotExist
+        return result
 
     @classmethod
     def create(cls, **fields):
@@ -46,6 +49,7 @@ class ConceptDBDocument(object):
         for key, value in fields.items():
             update['set__'+key] = value
         result = query.update_one(**update)
+        Log.record(self)
         return result
 
     def append(self, fieldname, value):
@@ -54,6 +58,7 @@ class ConceptDBDocument(object):
             'push__'+fieldname: value
         }
         result = query.update_one(**update)
+        Log.record(self)
         return result
     
     def save(self):

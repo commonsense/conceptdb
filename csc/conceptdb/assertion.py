@@ -126,6 +126,14 @@ class Sentence(ConceptDBJustified, mon.Document):
         if needs_save: s.save()
         return s
     
+    def check_consistency(self):
+        # TODO: check words match up
+        self.justification.check_consistency()
+        self.get_dataset().check_consistency()
+
+    def get_dataset(self):
+        return Dataset.objects.with_id(self.dataset)
+
     def add_assertion(self, assertion):
         self.append('derived_assertions', assertion)
 

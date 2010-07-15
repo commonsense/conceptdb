@@ -20,6 +20,9 @@ class Dataset(ConceptDBDocument, mon.Document):
               defaults=dict(language=language))
         return d
 
+    def check_consistency(self):
+        assert self.name.startswith('/data/')
+
     def get_reason(self, reason):
         if isinstance(reason, ConceptDBDocument):
             assert reason.dataset == self.name
@@ -41,9 +44,9 @@ class Dataset(ConceptDBDocument, mon.Document):
                 return ExternalReason.objects.with_id(full_id)
 
     def get_root_reason(self):
-        return ExternalReason.make(self, '/root')
+        return ExternalReason.make(self.name, '/root')
     
-EXT_REASON_TYPES = ['root', 'admin', 'site', 'contributor', 'algorithm']
+EXT_REASON_TYPES = ['root', 'admin', 'site', 'contributor', 'rule', 'activity']
 class ExternalReason(mon.Document, ConceptDBJustified):
     """
     An ExternalReason is a unit of justification. It indicates a reason to
@@ -77,8 +80,8 @@ class ExternalReason(mon.Document, ConceptDBJustified):
             datasetObj = dataset
             dataset = datasetObj.name
         name = dataset + name_suffix
-        try :
-            r = ExternalReason.objects.with_id(name)
+        try:
+            r = ExternalReason.get(name)
         except DoesNotExist:
             r = ExternalReason(
                 name=name,
@@ -94,10 +97,14 @@ class ExternalReason(mon.Document, ConceptDBJustified):
 
     def check_consistency(self):
         assert self.name.startswith(self.dataset)
-        assert self.name_suffix.startswith('/')
+        assert self.name_suffix().startswith('/')
         assert self.type() in EXT_REASON_TYPES
         self.justification.check_consistency()
+        self.get_dataset()
     
+    def get_dataset(self):
+        return Dataset.objects.with_id(self.dataset)
+
     def name_suffix(self):
         return self.name[len(self.dataset):]
 
