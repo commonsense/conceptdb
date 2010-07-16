@@ -18,7 +18,7 @@ class Assertion(ConceptDBJustified, mon.Document):
 
     meta = {'indexes': ['arguments',
                         ('arguments', '-justification.confidence_score'),
-                        ('dataset', 'relation', 'polarity', 'argstr'),
+                        ('dataset', 'relation', 'polarity', 'argstr', 'context'),
                         'justification.support_flat',
                         'justification.oppose_flat',
                         'justification.confidence_score',
@@ -42,8 +42,8 @@ class Assertion(ConceptDBJustified, mon.Document):
             a = Assertion.objects.get(
                 dataset=dataset,
                 relation=relation,
-                argstr=Assertion.make_arg_string(arguments),
                 polarity=polarity,
+                argstr=Assertion.make_arg_string(arguments),
                 context=context
             )
         except DoesNotExist:
@@ -95,7 +95,7 @@ class Sentence(ConceptDBJustified, mon.Document):
     justification = mon.EmbeddedDocumentField(Justification)
     derived_assertions = mon.ListField(mon.ReferenceField(Assertion))
 
-    meta = {'indexes': ['dataset', 'words',
+    meta = {'indexes': ['dataset', 'words', 'text',
                         'justification.support_flat',
                         'justification.oppose_flat',
                         'justification.confidence_score',
