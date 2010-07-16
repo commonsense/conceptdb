@@ -38,6 +38,7 @@ class Assertion(ConceptDBJustified, mon.Document):
     def make(dataset, relation, arguments, polarity=1, context=None,
              reasons=None):
         needs_save = False
+        if isinstance(dataset, Dataset): dataset = dataset.name
         try:
             a = Assertion.objects.get(
                 dataset=dataset,
@@ -65,8 +66,8 @@ class Assertion(ConceptDBJustified, mon.Document):
         if needs_save: a.save()
         return a
 
-    def connect_to_sentence(self, dataset, text):
-        sent = Sentence.make(dataset, text)
+    def connect_to_sentence(self, dataset, text, reasons=None):
+        sent = Sentence.make(dataset, text, reasons)
         sent.add_assertion(self)
 
     def get_dataset(self):

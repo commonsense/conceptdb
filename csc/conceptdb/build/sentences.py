@@ -15,6 +15,7 @@ RELATION_ROOT = '/rel/conceptnet/'
 ACTIVITY_ROOT = '/activity/old/'
 DATASET_ROOT = '/data/conceptnet/5/'
 
+BAD_ACTIVITIES = ['unknown', 'nosetests', 'junk', 'commons2_reject', 'is-a cleanup']
 def import_sentences():
     sentences = Sentence.objects.filter(score__gt=0)[273000:]
     for sent in sentences:

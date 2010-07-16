@@ -35,9 +35,9 @@ class Expression(mon.EmbeddedDocument):
             justification=Justification.empty()
         )
         
-    def add_support(self):
-        self.justification = self.justification.add_support(self)
+    def add_support(self, reasons):
+        self.justification = self.justification.add_support(reasons)
 
-    def add_oppose(self):
-        self.justification = self.justification.add_oppose(self)
+    def add_oppose(self, reasons):
+        self.justification = self.justification.add_oppose(reasons)
 

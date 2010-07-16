@@ -49,7 +49,7 @@ class ConceptDBDocument(object):
         for key, value in fields.items():
             update['set__'+key] = value
         result = query.update_one(**update)
-        Log.record(self)
+        Log.record_update(self, fields)
         return result
 
     def append(self, fieldname, value):
@@ -58,27 +58,43 @@ class ConceptDBDocument(object):
             'push__'+fieldname: value
         }
         result = query.update_one(**update)
-        Log.record(self)
+        Log.record_append(self, {fieldname: value})
         return result
     
     def save(self):
         self.check_consistency()
+        prevstate = None
+        if getattr(self, '_id', None) is not None:
+            prevstate = self.__class__.objects.with_id(self._id)
+        
         result = mon.Document.save(self)
-        Log.record(self)
+        if prevstate is None:
+            Log.record_new(self)
+        else:
+            Log.record_diff(self, prevstate)
         return result
 
     def serialize(self):
         return self.serialize_inner(self)
 
     def serialize_inner(self, obj):
-        d = {}
-        for field in obj._fields:
-            value = getattr(obj, field)
-            if isinstance(value, (mon.Document, mon.EmbeddedDocument)):
+        if isinstance(obj, (mon.Document, mon.EmbeddedDocument)):
+            d = {}
+            for field in obj._fields:
+                value = getattr(obj, field)
                 value = self.serialize_inner(value)
-            d[field] = value
-        return d
-
+                d[field] = value
+            return d
+        elif isinstance(obj, dict):
+            d = {}
+            for key, value in obj.items():
+                value = self.serialize_inner(value)
+                d[field] = value
+            return d
+        elif isinstance(obj, list):
+            l = [self.serialize_inner(value) for value in obj]
+            return l
+        else: return obj
 
     def __repr__(self):
         assignments = ['%s=%r' % (key, value) for key, value in self.serialize().items()]
