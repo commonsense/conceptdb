@@ -1,5 +1,5 @@
 import mongoengine as mon
-from csc.conceptdb import ConceptDBDocument
+from conceptdb import ConceptDBDocument
 
 class Justification(mon.EmbeddedDocument):
     """

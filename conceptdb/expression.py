@@ -1,5 +1,5 @@
 import mongoengine as mon
-from csc.conceptdb.justify import Justification
+from conceptdb.justify import Justification
 
 BLANK = '*'
 class Expression(mon.EmbeddedDocument):

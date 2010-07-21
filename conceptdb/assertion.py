@@ -1,9 +1,9 @@
 import mongoengine as mon
 from mongoengine.queryset import DoesNotExist
-from csc.conceptdb.justify import Justification, ConceptDBJustified
-from csc.conceptdb.expression import Expression
-from csc.conceptdb.metadata import Dataset
-from csc.conceptdb import ConceptDBDocument
+from conceptdb.justify import Justification, ConceptDBJustified
+from conceptdb.expression import Expression
+from conceptdb.metadata import Dataset
+from conceptdb import ConceptDBDocument
 
 class Assertion(ConceptDBJustified, mon.Document):
     dataset = mon.StringField(required=True) # reference to Dataset
