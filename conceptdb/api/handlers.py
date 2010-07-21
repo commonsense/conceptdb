@@ -1,25 +1,27 @@
 from piston.handler import BaseHandler
 from piston.utils import throttle, rc
-from csc.conceptdb.assertion import Assertion, Sentence
-from csc.conceptdb.metadata import Dataset
-from csc.conceptdb.justify import Justification,Reason
+from conceptdb.assertion import Assertion, Sentence
+from conceptdb.metadata import Dataset, ExternalReason
+from conceptdb.justify import Justification
+import conceptdb
 from mongoengine.queryset import DoesNotExist
 
 BASE = "" #TODO: get base URL
+conceptdb.connect_to_mongodb('conceptdb')
 
-class DatasetHandler(BaseHandler):
+class ConceptDBHandler(BaseHandler):
     """A GET request to this URL will show the dataset's language and name"""
 
     allowed_methods = ('GET',)
-    model = Dataset
 
     @throttle(600,60,'read')
-    def read(self, request, dataset):
-        try:
-            dataset = Dataset.objects.get(name=dataset)
-            return {'name':dataset.name, 'lang':dataset.language}
-        except DoesNotExist:
-            return rc.NOT_FOUND
+    def read(self, request, obj_url):
+        obj_url = '/'+obj_url
+
+        if obj_url.startswith('/data'):
+            return Dataset.get(obj_url).serialize()
+        return {'message': 'you are looking for %s' % obj_url}
+
 
 
 class AssertionFindHandler(BaseHandler):
