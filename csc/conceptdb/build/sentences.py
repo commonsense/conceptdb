@@ -17,13 +17,12 @@ DATASET_ROOT = '/data/conceptnet/5/'
 
 BAD_ACTIVITIES = ['unknown', 'nosetests', 'junk', 'commons2_reject', 'is-a cleanup']
 def import_sentences():
-    sentences = Sentence.objects.filter(score__gt=0)[273000:]
+    sentences = Sentence.objects.filter(score__gt=0)
     for sent in sentences:
         activity = sent.activity.name
         if activity in BAD_ACTIVITIES: continue
         if sent.language.id == 'pt': continue # our portuguese is broken
         if sent.language.id == 'zh-Hant': continue # start Chinese over
-        
         dataset = Dataset.make(DATASET_ROOT+sent.language.id,
                                sent.language.id)
         root = dataset.get_root_reason()
