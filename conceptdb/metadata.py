@@ -1,6 +1,6 @@
-from csc.nl import get_nl
-from csc.conceptdb import ConceptDBDocument
-from csc.conceptdb.justify import Justification, ConceptDBJustified
+from nl import get_nl
+from conceptdb import ConceptDBDocument
+from conceptdb.justify import Justification, ConceptDBJustified
 from mongoengine.queryset import DoesNotExist
 import mongoengine as mon
 

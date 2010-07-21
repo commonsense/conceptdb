@@ -2,7 +2,7 @@ __import__('os').environ.setdefault('DJANGO_SETTINGS_MODULE', 'csc.django_settin
 import mongoengine as mon
 from mongoengine.queryset import DoesNotExist
 import db_config
-from csc.conceptdb.log import Log
+from conceptdb.log import Log
 
 def connect_to_mongodb(dbname='conceptdb',
                        host=db_config.MONGODB_HOST,

@@ -12,7 +12,6 @@ setup(  name='ConceptDB',
         url='http://conceptnet.media.mit.edu/',
         packages=packages,
         include_package_data=False,
-        namespace_packages = ['csc'],
         install_requires=['mongoengine'],
 
         # Metadata

@@ -1,8 +1,8 @@
-from piston.handler import BaseHandler, rc
+from piston.handler import BaseHandler
+from piston.utils import throttle, rc
 from csc.conceptdb.assertion import Assertion, Sentence
 from csc.conceptdb.metadata import Dataset
 from csc.conceptdb.justify import Justification,Reason
-import mongoengine as mon
 from mongoengine.queryset import DoesNotExist
 
 BASE = "" #TODO: get base URL
@@ -25,7 +25,7 @@ class DatasetHandler(BaseHandler):
 class AssertionFindHandler(BaseHandler):
     """GET request w/dataset, argstr, rel shows assertion's information if it exists"""
 
-    allowed_methods = ('GET',)
+    allowed_methods = ('GET','PUT',)
     model = Assertion
 
     @throttle(200,60,'read')
@@ -40,9 +40,33 @@ class AssertionFindHandler(BaseHandler):
                 polarity = polarity,
                 context = context
                 )
-           return assertion
+            return assertion
         except DoesNotExist:
             return rc.NOT_FOUND
+
+    @throttle(200,60,'update')
+    def update(self, request, dataset, relation, argstr, polarity = 1, context = None,
+        support=True):
+        """Look up the assertion.  If it does not exist, create it and assign
+        the user's justification.  If it does exist, add the user's justification
+        to the assertion's justification tree."""
+
+        try:
+            assertion = Assertion.objects.get(
+                dataset = dataset,
+                relation = relation,
+                argstr = argstr,
+                polarity = polarity,
+                context = context
+                )
+            if(support):
+                assertion.justification.add_support([]) #TODO: implement
+            else:
+                assertion.justification.add_oppose([]) #TODO: implement
+        except DoesNotExist:
+            pass
+            #TODO: implement
+            
 
 class AssertionHandler(BaseHandler):
     """GET request returns information about assertion w/id"""
@@ -50,7 +74,7 @@ class AssertionHandler(BaseHandler):
     allowed_methods = ('GET',)
     model = Assertion
 
-    @throttle(200,60,'read'):
+    @throttle(200,60,'read')
     def read(self, request, id):
         try:
             assertion = Assertion.objects.get(id = id)
@@ -59,15 +83,3 @@ class AssertionHandler(BaseHandler):
             return rc.NOT_FOUND
 
 
-class AssertionCreateHandler(BaseHandler):
-    """Lookup Assertion.  If it does not exist, create it with reason based on
-    the user and location it was submitted from.  If it does exist, add the
-    user and location reason to its justification."""
-
-    allowed_methods = ('PUT',)
-    model = Assertion
-
-    @throttle(200,60,'update')
-    def update(self, request, dataset, relation, argstr, polarity = 1, context = None):
-        pass
-        #TODO: implement
