@@ -6,8 +6,8 @@ from conceptdb.justify import Justification
 import conceptdb
 from mongoengine.queryset import DoesNotExist
 
-BASE = "" #TODO: get base URL
-conceptdb.connect_to_mongodb('conceptdb')
+
+conceptdb.connect_to_mongodb('test')
 
 class ConceptDBHandler(BaseHandler):
     """A GET request to this URL will show the dataset's language and name"""
@@ -20,6 +20,9 @@ class ConceptDBHandler(BaseHandler):
 
         if obj_url.startswith('/data'):
             return Dataset.get(obj_url).serialize()
+        elif obj_url.startswith('/assertion'):
+            #matches /assertion/id, look up by id
+            return Assertion.get(obj_url.replace('/assertion/', '')).serialize()    
         return {'message': 'you are looking for %s' % obj_url}
 
 
