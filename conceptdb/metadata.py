@@ -1,4 +1,4 @@
-from nl import get_nl
+from csc.nl import get_nl
 from conceptdb import ConceptDBDocument
 from conceptdb.justify import Justification, ConceptDBJustified
 from mongoengine.queryset import DoesNotExist
@@ -10,12 +10,14 @@ class Dataset(ConceptDBDocument, mon.Document):
     
     @property
     def nl(self):
+        #FIXME: not working.  IDK why. -EH 7/23
         if self.language is None:
             raise ValueError("This Dataset is not associated with a natural language")
         return get_nl(self.language)
     
     @staticmethod
     def make(name, language):
+        #why is the language a dictionary now? - EH 7/23
         d = Dataset.objects.get_or_create(name=name,
               defaults=dict(language=language))
         return d
