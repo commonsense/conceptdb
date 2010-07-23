@@ -10,7 +10,7 @@ from mongoengine.queryset import DoesNotExist
 conceptdb.connect_to_mongodb('test')
 
 class ConceptDBHandler(BaseHandler):
-    """A GET request to this URL will show the dataset's language and name"""
+    """A GET request to this can show the info for a dataset or assertion"""
 
     allowed_methods = ('GET',)
 
@@ -18,11 +18,45 @@ class ConceptDBHandler(BaseHandler):
     def read(self, request, obj_url):
         obj_url = '/'+obj_url
 
-        if obj_url.startswith('/data'):
-            return Dataset.get(obj_url).serialize()
-        elif obj_url.startswith('/assertion'):
+        if obj_url.startswith('/data'):#try to find matching dataset
+            try:
+                return Dataset.get(obj_url).serialize()
+            except DoesNotExist:
+                return rc.NOT_FOUND
+        elif obj_url.startswith('/assertion/'):
             #matches /assertion/id, look up by id
-            return Assertion.get(obj_url.replace('/assertion/', '')).serialize()    
+            try:
+                return Assertion.get(obj_url.replace('/assertion/', '')).serialize()    
+            except DoesNotExist:
+                return rc.NOT_FOUND
+        elif obj_url.startswith('/assertionfind'):
+            #TODO: make better
+            #needs dataset, rel, argstr, polarity, and context to find 
+            #the correct assertion.  Would like polarity and context
+            #to be optional, and go to defaults if not entered by
+            #user.  Not sure how to do?
+
+            #currently info is in form:
+            #/assertionfind/rel/argstr/polarity/context/dataset
+            #dataset is at end because URL form means unsure where
+            #to delimit it
+            
+            args = obj_url.split('/',6) #only split at 6 because
+            #any '/' after that are part of the dataset name
+            #args = ["","assertionfind","rel","argstr","polarity","context","dataset"]
+            if args[5] == "None":
+                args[5] = None
+            try:
+                return Assertion.objects.get(
+                    dataset = args[6],
+                    relation= args[2],
+                    argstr = args[3],
+                    polarity =int(args[4]),
+                    context = args[5]).serialize()
+            except DoesNotExist:
+                return rc.NOT_FOUND
+
+            
         return {'message': 'you are looking for %s' % obj_url}
 
 
