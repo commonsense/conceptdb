@@ -30,12 +30,6 @@ class ConceptDBHandler(BaseHandler):
             except DoesNotExist:
                 return rc.NOT_FOUND
         elif obj_url.startswith('/assertionfind'):
-            #TODO: make better
-            #needs dataset, rel, argstr, polarity, and context to find 
-            #the correct assertion.  Would like polarity and context
-            #to be optional, and go to defaults if not entered by
-            #user.  Not sure how to do?
-
             #currently info is in form:
             #/assertionfind/rel/argstr/polarity/context/dataset
             #dataset is at end because URL form means unsure where
@@ -55,8 +49,9 @@ class ConceptDBHandler(BaseHandler):
                     context = args[5]).serialize()
             except DoesNotExist:
                 return rc.NOT_FOUND
-
-            
+        elif obj_url.startswith('/reason'):
+            return ExternalReason.get(obj_url.replace('/reason','')).serialize()
+            #TODO: Test that ^            
         return {'message': 'you are looking for %s' % obj_url}
 
 
