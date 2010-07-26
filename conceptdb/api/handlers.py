@@ -54,6 +54,44 @@ class ConceptDBHandler(BaseHandler):
                      
         return {'message': 'you are looking for %s' % obj_url}
 
+    @throttle(200,60,'update')
+    def update(self, request, obj_url):
+        #can start with /assertionmake or /assertionvote.  If assertionmake,
+        #looks for the assertion.  If can't find, makes it and contributes
+        #a positive vote.  
+
+        #if assertionvote, looks for the assertion and votes on it.  If it can't find
+        #it nothing happens
+
+        if obj_url.startswith('/assertionmake'):
+            args = obj_url.split('/',6)
+            #args = ["","assertionmake","rel","argstr","polarity","context","dataset"]
+            assertion = Assertion.make(dataset = args[6],
+                            relation = args[2],
+                            argstr = args[3],
+                            polarity = args[4],
+                            context = args[5],
+                            reasons = None) #TODO: make reason based on user's reason
+            return assertion
+        elif obj_url.startswith('/assertionvote'):
+            args = obj_url.split('/',7)
+            #args = ["","assertionvote",vote,"rel","argstr","polarity","context","dataset"]
+            try:
+                assertion = Assertion.objects.get(dataset = args[7],
+                                                    relation = args[3],
+                                                    argstr = args[4],
+                                                    polarity = args[5],
+                                                    context = args[6])
+            except DoesNotExist:
+                return rc.NOT_FOUND
+
+            if vote == "1": #positive vote
+                assertion.add_support(None) #TODO: base reason on user
+            elif vote == "-1": #negative vote
+                assertion.add_oppose(None) #TODO: base reason on user
+            else: #invalid vote value
+                return rc.BAD_REQUEST
+            return assertion
 
 
 class AssertionFindHandler(BaseHandler):
@@ -100,20 +138,4 @@ class AssertionFindHandler(BaseHandler):
         except DoesNotExist:
             pass
             #TODO: implement
-            
-
-class AssertionHandler(BaseHandler):
-    """GET request returns information about assertion w/id"""
-    
-    allowed_methods = ('GET',)
-    model = Assertion
-
-    @throttle(200,60,'read')
-    def read(self, request, id):
-        try:
-            assertion = Assertion.objects.get(id = id)
-            return assertion
-        except DoesNotExist:
-            return rc.NOT_FOUND
-
-
+           
