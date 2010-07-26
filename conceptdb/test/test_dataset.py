@@ -1,5 +1,5 @@
 import conceptdb
-from conceptdb.metadata import Dataset
+from conceptdb.metadata import Dataset, ExternalReason
 
 conceptdb.connect_to_mongodb('test')
 
@@ -14,6 +14,12 @@ def test_dataset():
     dataset.name
 
     #test methods
+    reason = dataset.get_root_reason()
+
+    assert reason.name == '/data/test/root'
+    
+    assert dataset.get_reason(reason) == reason
+
     dataset.nl()
 
     dataset.check_consistency()

@@ -10,7 +10,7 @@ class Dataset(ConceptDBDocument, mon.Document):
     
     @property
     def nl(self):
-        #FIXME: not working.  IDK why. -EH 7/23
+        #FIXME: not working.  IDK why.
         if self.language is None:
             raise ValueError("This Dataset is not associated with a natural language")
         return get_nl(self.language)
