@@ -20,7 +20,7 @@ def test_dataset():
     
     assert dataset.get_reason(reason) == reason
 
-    dataset.nl()
+    dataset.nl
 
     dataset.check_consistency()
 
