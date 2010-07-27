@@ -6,6 +6,7 @@ from conceptdb.assertion import Assertion
 from conceptdb.expression import Expression
 from conceptdb.metadata import Dataset, ExternalReason
 
+import time
 import logging
 log = logging.getLogger('build.conceptnet')
 logging.basicConfig(level=logging.DEBUG)
@@ -17,7 +18,8 @@ ACTIVITY_ROOT = '/activity/old/'
 DATASET_ROOT = '/data/conceptnet/4/'
 
 def import_assertions(lang):
-    assertions = OldAssertion.objects.filter(score__gt=0, language__id=lang)[:20]
+    assertions = OldAssertion.objects.filter(score__gt=0, language__id=lang)\
+      .select_related('concept1', 'concept2', 'relation', 'language')[22260:]
     for assertion in assertions:
         dataset = Dataset.make(DATASET_ROOT+assertion.language.id,
                                assertion.language.id)
@@ -34,15 +36,15 @@ def import_assertions(lang):
         
         root = dataset.get_root_reason()
         site = root.derived_reason('/site/omcs')
-        raws = assertion.rawassertion_set.all()
+        raws = assertion.rawassertion_set.all().select_related('surface1', 'surface2', 'frame', 'sentence', 'sentence__creator', 'sentence__activity')
 
         sent_contributors = set()
         for raw in raws:
             if raw.score > 0:
                 frametext = raw.frame.text.replace('{1}','{0}').replace('{2}','{1}').replace('{%}','')
                 expr = Expression.make(frametext, [raw.surface1.text, raw.surface2.text], assertion.language.id)
-                support_votes = raw.votes.filter(vote=1)
-                oppose_votes = raw.votes.filter(vote=-1)
+                support_votes = raw.votes.filter(vote=1).select_related('user')
+                oppose_votes = raw.votes.filter(vote=-1).select_related('user')
                 for vote in support_votes:
                     voter = site.derived_reason(CONTRIBUTOR_ROOT+vote.user.username)
                     expr.add_support([voter])
@@ -69,7 +71,10 @@ def import_assertions(lang):
         for vote in oppose_votes:
             voter = site.derived_reason(CONTRIBUTOR_ROOT+vote.user.username)
             newassertion.add_oppose([voter])
+        starttime = time.time()
         newassertion.save()
+        endtime = time.time()
+        log.info(endtime-starttime)
         log.info(newassertion)
 
 
@@ -78,7 +83,8 @@ def main():
     import_assertions('en')
 
 if __name__ == '__main__':
-    import profile, pstats
-    profile.run('main()', 'assertions.profile')
-    p = pstats.Stats('assertions.profile')
-    p.sort_stats('time').print_stats(50)
+    #import profile, pstats
+    #profile.run('main()', 'assertions.profile')
+    #p = pstats.Stats('assertions.profile')
+    #p.sort_stats('time').print_stats(50)
+    main()

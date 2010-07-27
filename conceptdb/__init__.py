@@ -1,7 +1,7 @@
 __import__('os').environ.setdefault('DJANGO_SETTINGS_MODULE', 'csc.django_settings')
 from conceptdb.log import Log
 import mongoengine as mon
-from mongoengine.queryset import DoesNotExist
+from mongoengine.queryset import DoesNotExist, QuerySet
 from pymongo.objectid import ObjectId
 import db_config
 import json
@@ -31,16 +31,23 @@ class JSONScrubber(json.JSONEncoder):
             if not key.startswith('_') or key == '_id':
                 d2[key] = dct[key]
         return json.JSONEncoder._iterencode_dict(self, d2, markers)
+    
+    def _iterencode_default(self, obj, markers):
+        if isinstance(obj, ObjectId):
+            yield obj.binary.encode('hex')
+            return
+        elif isinstance(obj, QuerySet):
+            for token in self._iterencode_list(obj):
+                yield token
+        elif isinstance(obj, mon.Document):
+            for token in self._iterencode_dict(obj.to_mongo(), markers):
+                yield token
+        else:
+            for token in json.JSONEncoder._iterencode_default(self, obj, markers):
+                yield token
         
-    def default(self, obj):
-        if isinstance(obj, dict):
-            for key in obj:
-                if key.startswith('_') and key != '_id':
-                    del obj[key]
-            return json.JSONEncoder.default(obj)
-        elif isinstance(obj, ObjectId):
-            return obj.binary.encode('hex')
-        else: return json.JSONEncoder.default(obj)
+def to_json(obj):
+    return json.dumps(obj, cls=JSONScrubber)
 
 class ConceptDBDocument(object):
     """
@@ -99,8 +106,7 @@ class ConceptDBDocument(object):
         return self.to_mongo()
     
     def to_json(self):
-        bson = self.serialize()
-        return json.dumps(bson, cls=JSONScrubber)
+        return to_json(self)
 
     def __repr__(self):
         assignments = ['%s=%r' % (key, value) for key, value in self.serialize().items()]
