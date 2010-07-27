@@ -19,38 +19,14 @@ class ConceptDBHandler(BaseHandler):
         obj_url = '/'+obj_url
 
         if obj_url.startswith('/data'):#try to find matching dataset
-            try:
-                return Dataset.get(obj_url).serialize()
-            except DoesNotExist:
-                return rc.NOT_FOUND
+            return self.datasetLookup(obj_url)
         elif obj_url.startswith('/assertion/'):
             #matches /assertion/id, look up by id
-            try:
-                return Assertion.get(obj_url.replace('/assertion/', '')).serialize()    
-            except DoesNotExist:
-                return rc.NOT_FOUND
+            return self.assertionLookup(obj_url)
         elif obj_url.startswith('/assertionfind'):
-            #currently info is in form:
-            #/assertionfind/rel/argstr/polarity/context/dataset
-            #dataset is at end because URL form means unsure where
-            #to delimit it
-            
-            args = obj_url.split('/',6) #only split at 6 because
-            #any '/' after that are part of the dataset name
-            #args = ["","assertionfind","rel","argstr","polarity","context","dataset"]
-            if args[5] == "None":
-                args[5] = None
-            try:
-                return Assertion.objects.get(
-                    dataset = args[6],
-                    relation= args[2],
-                    argstr = args[3],
-                    polarity =int(args[4]),
-                    context = args[5]).serialize()
-            except DoesNotExist:
-                return rc.NOT_FOUND
+            return self.assertionFind(request, obj_url)
         elif obj_url.startswith('/reason'):
-            return ExternalReason.get(obj_url.replace('/reason','')).serialize()
+            return self.reasonLookup(obj_url)
                      
         return {'message': 'you are looking for %s' % obj_url}
 
@@ -64,64 +40,53 @@ class ConceptDBHandler(BaseHandler):
         #it nothing happens
 
         if obj_url.startswith('/assertionmake'):
-            args = obj_url.split('/',6)
-            #args = ["","assertionmake","rel","argstr","polarity","context","dataset"]
-            assertion = Assertion.make(dataset = args[6],
-                            relation = args[2],
-                            argstr = args[3],
-                            polarity = args[4],
-                            context = args[5],
-                            reasons = None) #TODO: make reason based on user's reason
-            return assertion
-        elif obj_url.startswith('/assertionvote'):
-            args = obj_url.split('/',7)
-            #args = ["","assertionvote",vote,"rel","argstr","polarity","context","dataset"]
-            try:
-                assertion = Assertion.objects.get(dataset = args[7],
-                                                    relation = args[3],
-                                                    argstr = args[4],
-                                                    polarity = args[5],
-                                                    context = args[6])
-            except DoesNotExist:
-                return rc.NOT_FOUND
-
-            if vote == "1": #positive vote
-                assertion.add_support(None) #TODO: base reason on user
-            elif vote == "-1": #negative vote
-                assertion.add_oppose(None) #TODO: base reason on user
-            else: #invalid vote value
-                return rc.BAD_REQUEST
-            return assertion
-
-
-class AssertionFindHandler(BaseHandler):
-    """GET request w/dataset, argstr, rel shows assertion's information if it exists"""
-
-    allowed_methods = ('GET','PUT',)
-    model = Assertion
-
-    @throttle(200,60,'read')
-    def read(self, request, dataset, relation, argstr, polarity = 1, context = None):
-        #currently assuming that argstr is given in sanitized form
-
+            self.assertionMake(request, obj_url)
+        elif obj_url.startswith('/assertionvote') or obj_url.startswith('/assertionidvote'):
+            self.assertionVote(request, obj_url)
+    
+    def datasetLookup(self,obj_url):
         try:
-            assertion = Assertion.objects.get(
-                dataset = dataset,
-                relation = relation,
-                argstr = argstr,
-                polarity = polarity,
-                context = context
-                )
-            return assertion
+            return Dataset.get(obj_url).serialize()
         except DoesNotExist:
             return rc.NOT_FOUND
 
-    @throttle(200,60,'update')
-    def update(self, request, dataset, relation, argstr, polarity = 1, context = None,
-        support=True):
-        """Look up the assertion.  If it does not exist, create it and assign
-        the user's justification.  If it does exist, add the user's justification
-        to the assertion's justification tree."""
+    def assertionLookup(self, obj_url):
+        try:
+            return Assertion.get(obj_url.replace('/assertion/', '')).serialize()    
+        except DoesNotExist:
+            return rc.NOT_FOUND
+
+    def assertionFind(self, request, obj_url):
+        dataset = request.GET['dataset']
+        relation = request.GET['rel']
+        argstr = request.GET['concepts']
+        polarity = int(request.GET['polarity'])
+        context = request.GET['context']
+        
+        if context == 'None':
+            context = None
+
+        try:
+            return Assertion.objects.get(
+                dataset = dataset,
+                relation = relation,
+                argstr = argstr,
+                polarity = polarity,
+                context = context).serialize()
+        except DoesNotExist:
+            return rc.NOT_FOUND
+
+    def reasonLookup(self, obj_url):
+        return ExternalReason.get(obj_url.replace('/reason','')).serialize()
+
+    def assertionMake(self, request, obj_url):
+        """This method takes the unique identifiers of an assertion as its arguments:
+        """
+        dataset = request.PUT['dataset']
+        relation = request.PUT['rel']
+        argstr = request.PUT['argstr']
+        polarity = request.PUT['polarity']
+        context = request.PUT['context']
 
         try:
             assertion = Assertion.objects.get(
@@ -129,13 +94,59 @@ class AssertionFindHandler(BaseHandler):
                 relation = relation,
                 argstr = argstr,
                 polarity = polarity,
-                context = context
-                )
-            if(support):
-                assertion.justification.add_support([]) #TODO: implement
-            else:
-                assertion.justification.add_oppose([]) #TODO: implement
+                context = context)
+
+            assertion.add_support(None) #TODO: base on user's Reason
+
+            return "The assertion you created already exists.  Your vote for this \
+            assertion has been counted.\n" + assertion.serialize()
+
         except DoesNotExist:
-            pass
-            #TODO: implement
-           
+            assertion = Assertion.make(dataset = dataset,
+                        argstr = argstr,
+                        relation = relation,
+                        polarity = polarity,
+                        context = context)
+
+            assertion.add_support(None) #TODO: base on user's reason
+
+            return assertion
+
+
+    def assertionVote(self, request, obj_url):
+
+        if obj_url.startswith('/assertionvote'):
+            dataset = request.PUT['dataset']
+            relation = request.PUT['rel']
+            argstr = request.PUT['argstr']
+            polarity = int(request.PUT['polarity'])
+            context = request.PUT['context']
+
+            if context == "None":
+                context = None
+
+            try:
+                 assertion = Assertion.objects.get(
+                     dataset = dataset,
+                     relation = relation,
+                     argstr = argstr,
+                     polarity = polarity,
+                     context = context)
+            except DoesNotExist:
+                return rc.NOT_FOUND
+        else:
+            id = request.PUT['id']
+
+            try:
+                assertion = Assertion.get(id)
+            except DoesNotExist:
+                return rc.NOT_FOUND
+
+        vote = request.PUT['vote']
+
+        if vote == "1": #vote in favor
+            assertion.add_support(None) #TODO: base on user's reason
+        elif vote == "-1": #vote against
+            assertion.add_oppose(None) #TODO: base on user's reason
+        else: #invalid vote
+            return rc.BAD_REQUEST

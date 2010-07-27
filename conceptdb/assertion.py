@@ -38,13 +38,17 @@ class Assertion(ConceptDBJustified, mon.Document):
     def make(dataset, relation, arguments, polarity=1, context=None,
              reasons=None):
         needs_save = False
+        if isinstance(arguments, basestring):
+            argstr = arguments
+        else:
+            argstr = Assertion.make_arg_string(arguments)
         if isinstance(dataset, Dataset): dataset = dataset.name
         try:
             a = Assertion.objects.get(
                 dataset=dataset,
                 relation=relation,
                 polarity=polarity,
-                argstr=Assertion.make_arg_string(arguments),
+                argstr=argstr),
                 context=context
             )
         except DoesNotExist:
@@ -52,7 +56,7 @@ class Assertion(ConceptDBJustified, mon.Document):
                 dataset=dataset,
                 relation=relation,
                 arguments=arguments,
-                argstr=Assertion.make_arg_string(arguments),
+                argstr=argstr,
                 complete=('*' not in arguments),
                 context=context,
                 polarity=polarity,
