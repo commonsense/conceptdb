@@ -175,13 +175,13 @@ class ConceptDBJustified(ConceptDBDocument):
         self.justification = self.justification.add_oppose(reasons)
 
 def lookup_reason(reason):
-    from csc.conceptdb.metadata import ExternalReason
+    from conceptdb.metadata import ExternalReason
     if isinstance(reason, ConceptDBDocument):
         return reason
     else:
         assert isinstance(reason, basestring)
         if reason.startswith('/assertion/'):
-            from csc.conceptdb.assertion import Assertion
+            from conceptdb.assertion import Assertion
             parts = reason.split('/')
             a_id = parts[2]
             assertion = Assertion.objects.with_id(a_id)

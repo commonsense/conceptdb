@@ -1,6 +1,6 @@
-from csc.conceptdb.justify import Justification, Reason
-from csc import conceptdb
-from csc.conceptdb.metadata import Dataset
+from conceptdb.justify import Justification, Reason
+import conceptdb
+from conceptdb.metadata import Dataset
 
 conceptdb.connect_to_mongodb('test')
 

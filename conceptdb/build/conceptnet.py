@@ -1,10 +1,10 @@
 from csc.nl import get_nl
 from csc.conceptnet.models import Assertion as OldAssertion, RawAssertion, Vote
 
-from csc import conceptdb
-from csc.conceptdb.assertion import Assertion
-from csc.conceptdb.expression import Expression
-from csc.conceptdb.metadata import Dataset, ExternalReason
+import conceptdb
+from conceptdb.assertion import Assertion
+from conceptdb.expression import Expression
+from conceptdb.metadata import Dataset, ExternalReason
 
 import logging
 log = logging.getLogger('build.conceptnet')
@@ -17,7 +17,7 @@ ACTIVITY_ROOT = '/activity/old/'
 DATASET_ROOT = '/data/conceptnet/4/'
 
 def import_assertions(lang):
-    assertions = OldAssertion.objects.filter(score__gt=0, language__id=lang)[:10]
+    assertions = OldAssertion.objects.filter(score__gt=0, language__id=lang)[:20]
     for assertion in assertions:
         dataset = Dataset.make(DATASET_ROOT+assertion.language.id,
                                assertion.language.id)
@@ -73,6 +73,12 @@ def import_assertions(lang):
         log.info(newassertion)
 
 
-if __name__ == '__main__':
+def main():
     conceptdb.connect_to_mongodb('conceptdb')
     import_assertions('en')
+
+if __name__ == '__main__':
+    import profile, pstats
+    profile.run('main()', 'assertions.profile')
+    p = pstats.Stats('assertions.profile')
+    p.sort_stats('time').print_stats(50)

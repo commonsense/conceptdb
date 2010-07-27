@@ -1,9 +1,9 @@
 from csc.nl import get_nl
 from csc.conceptnet.models import Event
 from csc.corpus.models import Sentence
-from csc import conceptdb
-from csc.conceptdb import assertion
-from csc.conceptdb.metadata import Dataset, ExternalReason
+import conceptdb
+from conceptdb import assertion
+from conceptdb.metadata import Dataset, ExternalReason
 
 import logging
 log = logging.getLogger('build.sentences')
@@ -17,7 +17,7 @@ DATASET_ROOT = '/data/conceptnet/5/'
 
 BAD_ACTIVITIES = ['unknown', 'nosetests', 'junk', 'commons2_reject', 'is-a cleanup']
 def import_sentences():
-    sentences = Sentence.objects.filter(score__gt=0)
+    sentences = Sentence.objects.filter(score__gt=0)[712300:]
     for sent in sentences:
         activity = sent.activity.name
         if activity in BAD_ACTIVITIES: continue

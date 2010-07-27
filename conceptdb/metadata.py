@@ -30,7 +30,7 @@ class Dataset(ConceptDBDocument, mon.Document):
         else:
             assert isinstance(reason, basestring)
             if reason.startswith('/assertion/'):
-                from csc.conceptdb.assertion import Assertion
+                from conceptdb.assertion import Assertion
                 parts = reason.split('/')
                 a_id = parts[2]
                 assertion = Assertion.objects.with_id(a_id)

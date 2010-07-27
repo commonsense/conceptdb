@@ -1,7 +1,7 @@
-from csc.conceptdb.assertion import Assertion
-from csc.conceptdb.expression import Expression
-from csc.conceptdb.metadata import Dataset
-from csc import conceptdb
+from conceptdb.assertion import Assertion
+from conceptdb.expression import Expression
+from conceptdb.metadata import Dataset
+import conceptdb
 
 conceptdb.connect_to_mongodb('test')
 

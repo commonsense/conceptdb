@@ -31,14 +31,14 @@ class Log(mon.Document):
     def record_update(object, changed):
         for key, value in changed.items():
             if isinstance(value, (mon.Document, mon.EmbeddedDocument)):
-                changed[key] = object.serialize_inner(value)
+                changed[key] = object.to_mongo()
         return Log.add_entry(object, 'update', {'value': changed})
     
     @staticmethod
     def record_append(object, changed):
         for key, value in changed.items():
             if isinstance(value, (mon.Document, mon.EmbeddedDocument)):
-                changed[key] = object.serialize_inner(value)
+                changed[key] = object.to_mongo()
         return Log.add_entry(object, 'append', {'value': changed})
     
     @classmethod

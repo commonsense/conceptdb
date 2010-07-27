@@ -1,5 +1,5 @@
-from csc import conceptdb
-from csc.conceptdb.metadata import Dataset
+import conceptdb
+from conceptdb.metadata import Dataset
 
 conceptdb.connect_to_mongodb('test')
 

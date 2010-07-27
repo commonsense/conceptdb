@@ -1,8 +1,10 @@
 __import__('os').environ.setdefault('DJANGO_SETTINGS_MODULE', 'csc.django_settings')
+from conceptdb.log import Log
 import mongoengine as mon
 from mongoengine.queryset import DoesNotExist
+from pymongo.objectid import ObjectId
 import db_config
-from conceptdb.log import Log
+import json
 
 def connect_to_mongodb(dbname='conceptdb',
                        host=db_config.MONGODB_HOST,
@@ -19,7 +21,26 @@ def connect_to_mongodb(dbname='conceptdb',
     The majority of the methods in csc.conceptdb will not work until
     after you have used connect_to_mongodb successfully.
     """
-    mon.connect(dbname, host=host, username=username, password=password)
+    _db = mon.connect(dbname, host=host, username=username, password=password)
+    return _db
+
+class JSONScrubber(json.JSONEncoder):
+    def _iterencode_dict(self, dct, markers=None):
+        d2 = {}
+        for key in dct:
+            if not key.startswith('_') or key == '_id':
+                d2[key] = dct[key]
+        return json.JSONEncoder._iterencode_dict(self, d2, markers)
+        
+    def default(self, obj):
+        if isinstance(obj, dict):
+            for key in obj:
+                if key.startswith('_') and key != '_id':
+                    del obj[key]
+            return json.JSONEncoder.default(obj)
+        elif isinstance(obj, ObjectId):
+            return obj.binary.encode('hex')
+        else: return json.JSONEncoder.default(obj)
 
 class ConceptDBDocument(object):
     """
@@ -73,28 +94,13 @@ class ConceptDBDocument(object):
         else:
             Log.record_diff(self, prevstate)
         return result
-
+    
     def serialize(self):
-        return self.serialize_inner(self)
-
-    def serialize_inner(self, obj):
-        if isinstance(obj, (mon.Document, mon.EmbeddedDocument)):
-            d = {}
-            for field in obj._fields:
-                value = getattr(obj, field)
-                value = self.serialize_inner(value)
-                d[field] = value
-            return d
-        elif isinstance(obj, dict):
-            d = {}
-            for key, value in obj.items():
-                value = self.serialize_inner(value)
-                d[field] = value
-            return d
-        elif isinstance(obj, list):
-            l = [self.serialize_inner(value) for value in obj]
-            return l
-        else: return obj
+        return self.to_mongo()
+    
+    def to_json(self):
+        bson = self.serialize()
+        return json.dumps(bson, cls=JSONScrubber)
 
     def __repr__(self):
         assignments = ['%s=%r' % (key, value) for key, value in self.serialize().items()]
