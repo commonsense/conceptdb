@@ -11,6 +11,8 @@ conceptdb.connect_to_mongodb('test')
 class ConceptDBHandler(BaseHandler):
     """The ConceptDBHandler deals with all accesses to the conceptdb 
     from the api.  A GET to it can return a dataset, assertion, or reason. 
+    Searching for a concept will return the top ranked assertions that the 
+    concept is part of.  
     A POST to it can create an assertion or vote on one."""
 
     allowed_methods = ('GET','POST')
@@ -28,7 +30,9 @@ class ConceptDBHandler(BaseHandler):
             return self.assertionFind(request, obj_url)
         elif obj_url.startswith('/reason'):
             return self.reasonLookup(obj_url)
-                     
+        elif obj_url.startswith('/concept'):
+            return self.conceptLookup(request, obj_url)
+        
         return {'message': 'you are looking for %s' % obj_url}
 
     @throttle(200,60,'update')
@@ -46,18 +50,33 @@ class ConceptDBHandler(BaseHandler):
             return self.assertionVote(request, obj_url)
     
     def datasetLookup(self,obj_url):
+        "Method called when going to /api/data/{dataset name}.  Returns 
+        a serialized version of the dataset."""
+
         try:
             return Dataset.get(obj_url).serialize()
         except DoesNotExist:
             return rc.NOT_FOUND
 
     def assertionLookup(self, obj_url):
+        """Method called to look up an assertion by its id number.  Accessed
+        by going to URL /api/assertion/{id}.  Returns a serialized version 
+        of the assertion."""
+
         try:
             return Assertion.get(obj_url.replace('/assertion/', '')).serialize()    
         except DoesNotExist:
             return rc.NOT_FOUND
 
     def assertionFind(self, request, obj_url):
+        """Method called to look up an assertion by its attributes, when the id 
+        number is not known.  Accessed by going to URL /api/assertionfind.  Must
+        include parameters for the dataset, relation, concepts, polarity, and context.  
+
+        /api/assertionfind?dataset={datasetname}&rel={relation}&concepts={concept1,concept2,etc}
+        &polarity={polarity}&context={context}
+        """
+
         dataset = request.GET['dataset']
         relation = request.GET['rel']
         argstr = request.GET['concepts']
@@ -78,10 +97,39 @@ class ConceptDBHandler(BaseHandler):
             return rc.NOT_FOUND
 
     def reasonLookup(self, obj_url):
+        """Method allows you to look up an External Reason by its name.  
+        Accessed by going to URL /api/reason/{name}
+        """
+
         return ExternalReason.get(obj_url.replace('/reason','')).serialize()
+
+    def conceptLookup(self, request, obj_url):
+        """
+        Method looks up the assertions that the concept participates in (as an argument,
+        not as a relation or a context).  From a list of concept assertions ranked by
+        confidence score, it returns the assertions from rank start:start+limit.  
+
+        Accessed by going to URL /api/concept/{name}?start={x}&limit={y}
+        """
+
+        #TODO: implement
+        start = int(request.GET['start'])
+        limit = int(request.GET['limit'])
+
+        cursor = Assertion.objects._collection.find({'arguments':obj_url}).skip(start)
+        
+        return cursor.next().serialize()
 
     def assertionMake(self, request, obj_url):
         """This method takes the unique identifiers of an assertion as its arguments:
+        dataset, relation, concepts, context, and polarity.  It checks to see if this
+        assertion exists.  If it does not, it creates it and adds the submitting user's
+        vote as a justification.  If it exists already, it adds the submitting user's
+        vote as a justification.
+
+        Accessed by going to the URL
+        /api/assertionmake?dataset={dataset}&rel={relation}&concepts={concept1,concept2,etc}&
+        polarity={polarity}&context={context}
         """
         dataset = request.POST['dataset']
         relation = request.POST['rel']
@@ -115,10 +163,22 @@ class ConceptDBHandler(BaseHandler):
 
             assertion.add_support([]) #TODO: base on user's reason
 
-            return assertion
+            return assertion.serialize()
 
 
     def assertionVote(self, request, obj_url):
+        """Assertion vote is called whenever someone is voting on an assertion.  It can 
+        be accessed in one of 2 ways: voting on an assertion identified directly by its id
+        or voting on an assertion identified by its unique attributes. To add a positive vote,
+        the user should make vote=1.  A negative vote is vote=-1.  Any other values will result
+        in no action being taken.  
+
+        Can be accessed through either of the following URLS:
+        /api/assertionvote?dataset={dataset}&rel={relation}&concept={concept1,concept2,etc}
+        &polarity={polarity}&context={context}&vote={vote}
+
+        /api/assertionidvote?id={id}&vote={vote}
+        """
 
         if obj_url.startswith('/assertionvote'):
             dataset = request.POST['dataset']
@@ -156,4 +216,4 @@ class ConceptDBHandler(BaseHandler):
         else: #invalid vote
             return {"message":"Vote value invalid."}
 
-        return assertion
+        return assertion.serialize()
