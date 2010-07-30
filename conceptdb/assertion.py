@@ -3,8 +3,10 @@ from mongoengine.queryset import DoesNotExist
 from conceptdb.justify import Justification, ConceptDBJustified
 from conceptdb.expression import Expression
 from conceptdb.metadata import Dataset
+from conceptdb.util import outer_iter
 from conceptdb import ConceptDBDocument
 
+BLANK = '*'
 class Assertion(ConceptDBJustified, mon.Document):
     dataset = mon.StringField(required=True) # reference to Dataset
     relation = mon.StringField(required=True) # concept ID
@@ -32,12 +34,14 @@ class Assertion(ConceptDBJustified, mon.Document):
 
     @property
     def name(self):
-        return '/assertion/%s' % self._id
+        return '/assertion/%s' % self.id
 
     @staticmethod
     def make(dataset, relation, arguments, polarity=1, context=None,
-             reasons=None):
+             reasons=None, expressions=None):
         needs_save = False
+        if expressions is None:
+            expressions = []
         if isinstance(arguments, basestring):
             argstr = arguments
         else:
@@ -48,8 +52,8 @@ class Assertion(ConceptDBJustified, mon.Document):
                 dataset=dataset,
                 relation=relation,
                 polarity=polarity,
-                argstr=argstr),
-                context=context
+                argstr=argstr,
+                context=context,
             )
         except DoesNotExist:
             a = Assertion(
@@ -57,10 +61,10 @@ class Assertion(ConceptDBJustified, mon.Document):
                 relation=relation,
                 arguments=arguments,
                 argstr=argstr,
-                complete=('*' not in arguments),
+                complete=(BLANK not in arguments),
                 context=context,
                 polarity=polarity,
-                expressions=[],
+                expressions=expressions,
                 justification=Justification.empty()
             )
             needs_save = True
@@ -69,6 +73,30 @@ class Assertion(ConceptDBJustified, mon.Document):
             needs_save = True
         if needs_save: a.save()
         return a
+
+    def make_generalizations(self):
+        pattern_pieces = []
+        for arg in self.arguments:
+            if arg == BLANK:
+                pattern_pieces.append((False,))
+            else:
+                pattern_pieces.append((True, False))
+        for pattern in outer_iter(pattern_pieces):
+            if True in pattern:
+                gen = self.generalize(pattern)
+                gen.save()
+
+    def generalize(self, pattern):
+        args = []
+        for arg, drop in zip(self.arguments, pattern):
+            if drop: args.append(BLANK)
+            else: args.append(arg)
+        reasons = (self.get_dataset().get_root_reason().derived_reason('/rule/generalize').name, self.name)
+        expressions = [expr.generalize(pattern, reasons) for expr in self.expressions]
+        newassertion = Assertion.make(self.dataset, self.relation,
+                                      args, self.polarity,
+                                      self.context, reasons, expressions)
+        return newassertion
 
     def connect_to_sentence(self, dataset, text, reasons=None):
         sent = Sentence.make(dataset, text, reasons)
@@ -90,8 +118,17 @@ class Assertion(ConceptDBJustified, mon.Document):
 
         self.justification.check_consistency()
     
-    def add_expression(self, expr):
-        self.append('expressions', expr)
+    def add_expression(self, expr, db_only=True):
+        self.append('expressions', expr, db_only)
+    
+    def __str__(self):
+        polstr = '?'
+        if self.polarity == 1: polstr = '+'
+        elif self.polarity == -1: polstr = '-'
+        return "%s%s(%s) in %s:%s" % (polstr, self.relation, self.argstr,
+                                      self.dataset, self.context)
+    def __repr__(self):
+        return "<Assertion: %s>" % self
 
 class Sentence(ConceptDBJustified, mon.Document):
     text = mon.StringField(required=True)
@@ -107,7 +144,7 @@ class Sentence(ConceptDBJustified, mon.Document):
                        ]}
     
     @staticmethod
-    def make(dataset, text, reasons=[]):
+    def make(dataset, text, reasons=None):
         needs_save = False
         if isinstance(dataset, basestring):
             datasetObj = Dataset.get(dataset)
@@ -139,6 +176,6 @@ class Sentence(ConceptDBJustified, mon.Document):
     def get_dataset(self):
         return Dataset.objects.with_id(self.dataset)
 
-    def add_assertion(self, assertion):
-        self.append('derived_assertions', assertion)
+    def add_assertion(self, assertion, db_only=True):
+        self.append('derived_assertions', assertion, db_only)
 

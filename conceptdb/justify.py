@@ -121,7 +121,6 @@ class Justification(mon.EmbeddedDocument):
             assert isinstance(reason, basestring)
             return (reason, weight)
 
-
         weighted_reasons = [transform_reason(r) for r in reasons]
         dis = self.get_disjunction(flatlist, offsetlist, weightlist)
         if weighted_reasons in dis: return self
@@ -135,6 +134,7 @@ class Justification(mon.EmbeddedDocument):
         return self
 
     def add_support(self, reasons):
+        assert reasons
         return self.add_conjunction(reasons, self.support_flat, self.support_offsets, self.support_weights)
 
     def add_opposition(self, reasons):
@@ -142,13 +142,15 @@ class Justification(mon.EmbeddedDocument):
     
     def get_disjunction(self, flatlist, offsetlist, weightlist):
         disjunction = []
-        prev_offset = 0
-        for offset in offsetlist:
-            disjunction.append(zip(flatlist[prev_offset:offset],
-                                   weightlist[prev_offset:offset]))
-            prev_offset = offset
-        disjunction.append(zip(flatlist[prev_offset:],
-                               weightlist[prev_offset:]))
+        flatlist = [lookup_reason(x) for x in flatlist]
+        if offsetlist:
+            prev_offset = offsetlist[0]
+            for offset in offsetlist[1:]:
+                disjunction.append(zip(flatlist[prev_offset:offset],
+                                       weightlist[prev_offset:offset]))
+                prev_offset = offset
+            disjunction.append(zip(flatlist[prev_offset:],
+                                   weightlist[prev_offset:]))
         return disjunction
     
     def get_support(self):

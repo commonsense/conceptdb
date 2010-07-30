@@ -34,6 +34,17 @@ class Expression(mon.EmbeddedDocument):
             language=language,
             justification=Justification.empty()
         )
+
+    def generalize(self, pattern, reasons=None):
+        args = []
+        for arg, drop in zip(self.arguments, pattern):
+            if drop: args.append(BLANK)
+            else: args.append(arg)
+        e = Expression.make(self.frame, args, self.language)
+        if reasons is not None:
+            for otherreasons in self.justification.get_support():
+                e.add_support(tuple(reasons)+tuple(otherreasons))
+        return e
         
     def add_support(self, reasons):
         self.justification = self.justification.add_support(reasons)

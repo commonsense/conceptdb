@@ -114,4 +114,8 @@ class ExternalReason(mon.Document, ConceptDBJustified):
 
     def type(self):
         return self.name_suffix().split('/')[1]
-
+    
+    def __str__(self):
+        return "<ExternalReason: %s>" % self.name
+    def __repr__(self):
+        return "<ExternalReason: %s>" % self.name

@@ -71,23 +71,30 @@ class ConceptDBDocument(object):
         object.save()
         return object
 
-    def update(self, **fields):
-        query = self.__class__.objects(id=self.id)
-        update = {}
-        for key, value in fields.items():
-            update['set__'+key] = value
-        result = query.update_one(**update)
-        Log.record_update(self, fields)
-        return result
+    def update(self, db_only=True, **fields):
+        if db_only and self.id:
+            query = self.__class__.objects(id=self.id)
+            update = {}
+            for key, value in fields.items():
+                update['set__'+key] = value
+            result = query.update_one(**update)
+            Log.record_update(self, fields)
+            return result
+        else:
+            self[fieldname].append(value)
 
-    def append(self, fieldname, value):
-        query = self.__class__.objects(id=self.id)
-        update = {
-            'push__'+fieldname: value
-        }
-        result = query.update_one(**update)
-        Log.record_append(self, {fieldname: value})
-        return result
+    def append(self, fieldname, value, db_only=True):
+        if db_only and self.id:
+            self.save()
+            query = self.__class__.objects(id=self.id)
+            update = {
+                'push__'+fieldname: value
+            }
+            result = query.update_one(**update)
+            Log.record_append(self, {fieldname: value})
+            return result
+        else:
+            self[fieldname].append(value)
     
     def save(self):
         self.check_consistency()
