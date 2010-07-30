@@ -10,7 +10,7 @@ def test_expression():
     
     a1 = Assertion.make('/data/test','/rel/IsA',
                         ['/concept/test/assertion', '/concept/test/test'])
-    expr = a1.add_expression(
+    expr = a1.quick_add_expression(
       Expression.make('{0} is a {1}', ['this assertion', 'test'], 'en')
     )
     

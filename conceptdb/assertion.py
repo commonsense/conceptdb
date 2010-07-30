@@ -118,8 +118,11 @@ class Assertion(ConceptDBJustified, mon.Document):
 
         self.justification.check_consistency()
     
-    def add_expression(self, expr, db_only=True):
-        self.append('expressions', expr, db_only)
+    def add_expression(self, expr):
+        self.append('expressions', expr, db_only=False)
+    
+    def quick_add_expression(self, expr):
+        self.append('expressions', expr, db_only=True)
     
     def __str__(self):
         polstr = '?'
@@ -176,6 +179,9 @@ class Sentence(ConceptDBJustified, mon.Document):
     def get_dataset(self):
         return Dataset.objects.with_id(self.dataset)
 
-    def add_assertion(self, assertion, db_only=True):
-        self.append('derived_assertions', assertion, db_only)
+    def add_assertion(self, assertion):
+        self.append('derived_assertions', assertion, db_only=False)
+
+    def quick_add_assertion(self, assertion):
+        self.append('derived_assertions', assertion, db_only=True)
 
