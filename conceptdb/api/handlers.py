@@ -75,13 +75,15 @@ class ConceptDBHandler(BaseHandler):
 
         /api/assertionfind?dataset={datasetname}&rel={relation}&concepts={concept1,concept2,etc}
         &polarity={polarity}&context={context}
+
+        Polarity and context are optional parameters, defaulting to polarity = 1 and context = None
         """
 
         dataset = request.GET['dataset']
         relation = request.GET['rel']
         argstr = request.GET['concepts']
-        polarity = int(request.GET['polarity'])
-        context = request.GET['context']
+        polarity = int(request.GET.get('polarity',1))
+        context = request.GET.get('context','None')
         
         if context == 'None':
             context = None
@@ -108,7 +110,8 @@ class ConceptDBHandler(BaseHandler):
         Method looks up the assertions that the concept participates in (as an argument,
         not as a relation or a context).  From a list of concept assertions ranked by
         confidence score, it returns the assertions from rank start:start+limit, in the 
-        form of a list.
+        form of a list.  Defaults start = 0, limit = 10.  If there are fewer assertions
+        containing the concept than start + limit, it cuts off at the last one.  
 
         Accessed by going to URL /api/concept/{name}?start={x}&limit={y}
         """
@@ -116,8 +119,8 @@ class ConceptDBHandler(BaseHandler):
         #TODO: implement ranking by confidence score
         #TODO: maybe remember state so can implement paging
 
-        start = int(request.GET['start'])
-        limit = int(request.GET['limit'])
+        start = int(request.GET.get('start', '0'))
+        limit = int(request.GET.get('limit', '10'))
 
         cursor = Assertion.objects._collection.find({'arguments':obj_url}).skip(start).limit(limit)
         assertions = "["
@@ -130,8 +133,12 @@ class ConceptDBHandler(BaseHandler):
                 break #no more assertions within the skip/limit boundaries
             i += 1
         
-        assertions = assertions[:len(assertions) - 2]
+        assertions = assertions[:len(assertions) - 2] #strip last ', '
         assertions = assertions + "]"
+
+        if i == start: #no assertions were found for the concept
+            return rc.NOT_FOUND
+
         return assertions
 
     def assertionMake(self, request, obj_url):
@@ -144,13 +151,15 @@ class ConceptDBHandler(BaseHandler):
         Accessed by going to the URL
         /api/assertionmake?dataset={dataset}&rel={relation}&concepts={concept1,concept2,etc}&
         polarity={polarity}&context={context}
+
+        Polarity and context are optional, defaulting to polarity = 1 context = None
         """
         dataset = request.POST['dataset']
         relation = request.POST['rel']
         argstr = request.POST['concepts']
         arguments = argstr.split(',')
-        polarity = int(request.POST['polarity'])
-        context = request.POST['context']
+        polarity = int(request.POST.get('polarity','1'))
+        context = request.POST.get('context','None')
 
         if context == "None":
             context = None
@@ -191,6 +200,8 @@ class ConceptDBHandler(BaseHandler):
         /api/assertionvote?dataset={dataset}&rel={relation}&concept={concept1,concept2,etc}
         &polarity={polarity}&context={context}&vote={vote}
 
+        polarity and context are optional values, defaulting to polarity = 1 and context = None
+
         /api/assertionidvote?id={id}&vote={vote}
         """
 
@@ -198,8 +209,8 @@ class ConceptDBHandler(BaseHandler):
             dataset = request.POST['dataset']
             relation = request.POST['rel']
             argstr = request.POST['concepts']
-            polarity = int(request.POST['polarity'])
-            context = request.POST['context']
+            polarity = int(request.POST.get('polarity','1'))
+            context = request.POST.get('context','None')
 
             if context == "None":
                 context = None
