@@ -50,7 +50,7 @@ class ConceptDBHandler(BaseHandler):
             return self.assertionVote(request, obj_url)
     
     def datasetLookup(self,obj_url):
-        "Method called when going to /api/data/{dataset name}.  Returns 
+        """Method called when going to /api/data/{dataset name}.  Returns 
         a serialized version of the dataset."""
 
         try:
@@ -107,18 +107,32 @@ class ConceptDBHandler(BaseHandler):
         """
         Method looks up the assertions that the concept participates in (as an argument,
         not as a relation or a context).  From a list of concept assertions ranked by
-        confidence score, it returns the assertions from rank start:start+limit.  
+        confidence score, it returns the assertions from rank start:start+limit, in the 
+        form of a list.
 
         Accessed by going to URL /api/concept/{name}?start={x}&limit={y}
         """
 
-        #TODO: implement
+        #TODO: implement ranking by confidence score
+        #TODO: maybe remember state so can implement paging
+
         start = int(request.GET['start'])
         limit = int(request.GET['limit'])
 
-        cursor = Assertion.objects._collection.find({'arguments':obj_url}).skip(start)
+        cursor = Assertion.objects._collection.find({'arguments':obj_url}).skip(start).limit(limit)
+        assertions = "["
+
+        i = start
+        while (i < start + limit):
+            try:
+                assertions = assertions + str(cursor.next()) + ", "
+            except StopIteration:
+                break #no more assertions within the skip/limit boundaries
+            i += 1
         
-        return cursor.next().serialize()
+        assertions = assertions[:len(assertions) - 2]
+        assertions = assertions + "]"
+        return assertions
 
     def assertionMake(self, request, obj_url):
         """This method takes the unique identifiers of an assertion as its arguments:
