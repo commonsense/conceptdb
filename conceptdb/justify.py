@@ -1,5 +1,6 @@
 import mongoengine as mon
 from conceptdb import ConceptDBDocument
+import numpy as np
 
 class Justification(mon.EmbeddedDocument):
     """
@@ -93,8 +94,28 @@ class Justification(mon.EmbeddedDocument):
             support_weights = support_weights,
             oppose_weights = oppose_weights
             )
+        j.update_confidence()
         return j
-            
+    
+    def update_confidence(self):
+        # Calculate a conservative probabilistic estimate of confidence:
+        # the probability that the support is correct *and* the opposition is
+        # incorrect.
+        self.confidence_score = self.compute_confidence(self.get_support()) * (1.0 - self.compute_confidence(self.get_oppose()))
+        return self.confidence_score
+
+    def compute_confidence(self, disjunction):
+        # Compute using probabilities. This may or may not turn out to be the
+        # right idea.
+        inv_prob = 1.0
+        for conjunction in disjunction: # what's your function
+            prob = 1.0
+            for reason, weight in conjunction:
+                confidence = np.clip(reason.confidence_score, 0, 1) * np.clip(weight, 0, 1)
+                prob *= confidence
+            inv_prob *= (1.0 - prob)
+        return (1.0 - inv_prob)
+
     def check_consistency(self):
         for offset in self.support_offsets:
             assert offset < len(self.support_flat)
@@ -106,10 +127,12 @@ class Justification(mon.EmbeddedDocument):
             lookup_reason(reason)
         assert len(self.support_flat) == len(self.support_weights)
         assert len(self.oppose_flat) == len(self.oppose_weights)
-
-        #TODO: will confidence score be in a given range?  Could be additional consistency check
+        assert self.confidence_score >= 0.0
+        assert self.confidence_score <= 1.0
 
     def add_conjunction(self, reasons, flatlist, offsetlist, weightlist):
+        # FIXME: if a conjunction is added with the same reasons but different
+        # weights as another, it should be updated instead.
         def transform_reason(r):
             if isinstance(r, tuple):
                 reason, weight = r

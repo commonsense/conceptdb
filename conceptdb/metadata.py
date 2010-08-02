@@ -109,8 +109,8 @@ class ExternalReason(mon.Document, ConceptDBJustified):
     def name_suffix(self):
         return self.name[len(self.dataset):]
 
-    def derived_reason(self, name_suffix):
-        return ExternalReason.make(self.dataset, name_suffix, [self])
+    def derived_reason(self, name_suffix, weight=1.0):
+        return ExternalReason.make(self.dataset, name_suffix, [(self, weight)])
 
     def type(self):
         return self.name_suffix().split('/')[1]
