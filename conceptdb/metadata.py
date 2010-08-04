@@ -89,6 +89,8 @@ class ExternalReason(mon.Document, ConceptDBJustified):
                 dataset=dataset,
                 justification=Justification.empty(),
                )
+            if name_suffix == '/root':
+                r.justification.confidence_score = 1.0
             needs_save = True
         if reasons is not None:
             r.add_support(reasons)
