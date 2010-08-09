@@ -89,6 +89,8 @@ class ExternalReason(mon.Document, ConceptDBJustified):
                 dataset=dataset,
                 justification=Justification.empty(),
                )
+            if name_suffix == '/root':
+                r.justification.confidence_score = 1.0
             needs_save = True
         if reasons is not None:
             r.add_support(reasons)
@@ -109,9 +111,13 @@ class ExternalReason(mon.Document, ConceptDBJustified):
     def name_suffix(self):
         return self.name[len(self.dataset):]
 
-    def derived_reason(self, name_suffix):
-        return ExternalReason.make(self.dataset, name_suffix, [self])
+    def derived_reason(self, name_suffix, weight=1.0):
+        return ExternalReason.make(self.dataset, name_suffix, [(self, weight)])
 
     def type(self):
         return self.name_suffix().split('/')[1]
-
+    
+    def __str__(self):
+        return "<ExternalReason: %s>" % self.name
+    def __repr__(self):
+        return "<ExternalReason: %s>" % self.name

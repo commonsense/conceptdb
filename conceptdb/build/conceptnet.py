@@ -19,7 +19,7 @@ DATASET_ROOT = '/data/conceptnet/4/'
 
 def import_assertions(lang):
     assertions = OldAssertion.objects.filter(score__gt=0, language__id=lang)\
-      .select_related('concept1', 'concept2', 'relation', 'language')[22260:]
+      .select_related('concept1', 'concept2', 'relation', 'language')[:10]
     for assertion in assertions:
         dataset = Dataset.make(DATASET_ROOT+assertion.language.id,
                                assertion.language.id)
@@ -35,10 +35,11 @@ def import_assertions(lang):
                                          context=context)
         
         root = dataset.get_root_reason()
-        site = root.derived_reason('/site/omcs')
+        site = root.derived_reason('/site/omcs', weight=1.0)
         raws = assertion.rawassertion_set.all().select_related('surface1', 'surface2', 'frame', 'sentence', 'sentence__creator', 'sentence__activity')
 
         sent_contributors = set()
+        expressions = []
         for raw in raws:
             if raw.score > 0:
                 frametext = raw.frame.text.replace('{1}','{0}').replace('{2}','{1}').replace('{%}','')
@@ -46,37 +47,38 @@ def import_assertions(lang):
                 support_votes = raw.votes.filter(vote=1).select_related('user')
                 oppose_votes = raw.votes.filter(vote=-1).select_related('user')
                 for vote in support_votes:
-                    voter = site.derived_reason(CONTRIBUTOR_ROOT+vote.user.username)
+                    voter = site.derived_reason(CONTRIBUTOR_ROOT+vote.user.username, weight=0.5)
                     expr.add_support([voter])
                 for vote in oppose_votes:
-                    voter = site.derived_reason(CONTRIBUTOR_ROOT+vote.user.username)
+                    voter = site.derived_reason(CONTRIBUTOR_ROOT+vote.user.username, weight=0.5)
                     expr.add_oppose([voter])
-                newassertion.add_expression(expr)
+                expressions.append(expr)
+                log.info(str(expr.to_mongo()))
 
                 sent = raw.sentence
                 if sent.score > 0:
                     activity = sent.activity.name
                     act_reason = site.derived_reason(ACTIVITY_ROOT+activity.replace(' ', '_'))
-                    contrib_reason = site.derived_reason(CONTRIBUTOR_ROOT+sent.creator.username)
+                    contrib_reason = site.derived_reason(CONTRIBUTOR_ROOT+sent.creator.username, weight=0.5)
                     sent_contributors.add(contrib_reason)
                     justification = [act_reason, contrib_reason]
                     newassertion.connect_to_sentence(dataset, sent.text, justification)
 
+        newassertion.expressions = expressions
         support_votes = assertion.votes.filter(vote=1)
         oppose_votes = assertion.votes.filter(vote=-1)
         for vote in support_votes:
-            voter = site.derived_reason(CONTRIBUTOR_ROOT+vote.user.username)
+            voter = site.derived_reason(CONTRIBUTOR_ROOT+vote.user.username, weight=0.5)
             if voter not in sent_contributors:
                 newassertion.add_support([voter])
         for vote in oppose_votes:
-            voter = site.derived_reason(CONTRIBUTOR_ROOT+vote.user.username)
+            voter = site.derived_reason(CONTRIBUTOR_ROOT+vote.user.username, weight=0.5)
             newassertion.add_oppose([voter])
         starttime = time.time()
         newassertion.save()
+        newassertion.make_generalizations()
         endtime = time.time()
-        log.info(endtime-starttime)
         log.info(newassertion)
-
 
 def main():
     conceptdb.connect_to_mongodb('conceptdb')

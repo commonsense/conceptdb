@@ -1,5 +1,17 @@
 import mongoengine as mon
 from conceptdb import ConceptDBDocument
+import numpy as np
+
+def transform_reason(r):
+    if isinstance(r, tuple):
+        reason, weight = r
+    else:
+        reason = r
+        weight = 1.0
+    if isinstance(reason, ConceptDBDocument):
+        reason = reason.name
+    assert isinstance(reason, basestring)
+    return (reason, weight)
 
 class Justification(mon.EmbeddedDocument):
     """
@@ -60,25 +72,22 @@ class Justification(mon.EmbeddedDocument):
         support_weights = []
         oppose_weights = []
         
+        support = [[transform_reason(r) for r in sub] for sub in support]
+        oppose = [[transform_reason(r) for r in sub] for sub in oppose]
+
         #go through support and oppose lists, building offsets, weights, flat
+        support_index = 0
         for l in support:
-            if(len(support_offsets) == 0):
-                support_offsets.append(len(l))
-            elif (len(support_offsets) == len(support) - 1):
-                pass #don't need to add last
-            else:
-                support_offsets.append(len(l) + support_offsets[-1])
+            support_offsets.append(support_index)
+            support_index += len(l)
             flat, weight = zip(*l)
             support_flat.extend(flat)
             support_weights.extend(weight)
 
+        oppose_index = 0
         for l in oppose:
-            if(len(oppose_offsets) == 0):
-                oppose_offsets.append(len(l))
-            elif (len(oppose_offsets) == len(oppose) - 1):
-                pass
-            else:
-                oppose_offsets.append(len(l) + oppose_offsets[-1]) 
+            oppose_offsets.append(oppose_index)
+            oppose_index += len(l)
             flat, weight = zip(*l)
             oppose_flat.extend(flat)
             oppose_weights.extend(weight)
@@ -92,35 +101,50 @@ class Justification(mon.EmbeddedDocument):
             oppose_offsets = oppose_offsets,
             support_weights = support_weights,
             oppose_weights = oppose_weights
-            )
+        )
+        j.update_confidence()
         return j
-            
+    
+    def update_confidence(self):
+        # Calculate a conservative probabilistic estimate of confidence:
+        # the probability that the support is correct *and* the opposition is
+        # incorrect.
+        self.confidence_score = self.compute_confidence(self.get_support()) * (1.0 - self.compute_confidence(self.get_oppose()))
+        return self
+
+    def compute_confidence(self, disjunction):
+        # Compute using probabilities. This may or may not turn out to be the
+        # right idea.
+        inv_prob = 1.0
+        for conjunction in disjunction: # what's your function
+            prob = 1.0
+            for reason, weight in conjunction:
+                confidence = np.clip(reason.confidence(), 0, 1) * np.clip(weight, 0, 1)
+                prob *= confidence
+            inv_prob *= (1.0 - prob)
+        return (1.0 - inv_prob)
+
     def check_consistency(self):
         for offset in self.support_offsets:
             assert offset < len(self.support_flat)
         for offset in self.oppose_offsets:
             assert offset < len(self.oppose_flat)
         for reason in self.support_flat:
+            assert isinstance(reason, basestring)
             lookup_reason(reason)
         for reason in self.oppose_flat:
+            assert isinstance(reason, basestring)
             lookup_reason(reason)
+        if self.support_offsets: assert self.support_offsets[0] == 0
+        if self.oppose_offsets: assert self.oppose_offsets[0] == 0
         assert len(self.support_flat) == len(self.support_weights)
         assert len(self.oppose_flat) == len(self.oppose_weights)
-
-        #TODO: will confidence score be in a given range?  Could be additional consistency check
+        assert self.confidence_score >= 0.0
+        assert self.confidence_score <= 1.0
 
     def add_conjunction(self, reasons, flatlist, offsetlist, weightlist):
-        def transform_reason(r):
-            if isinstance(r, tuple):
-                reason, weight = r
-            else:
-                reason = r
-                weight = 1.0
-            if isinstance(reason, ConceptDBDocument):
-                reason = reason.name
-            assert isinstance(reason, basestring)
-            return (reason, weight)
-
+        # FIXME: if a conjunction is added with the same reasons but different
+        # weights as another, it should be updated instead.
 
         weighted_reasons = [transform_reason(r) for r in reasons]
         dis = self.get_disjunction(flatlist, offsetlist, weightlist)
@@ -132,9 +156,11 @@ class Justification(mon.EmbeddedDocument):
         flatlist.extend(reasons)
         weightlist.extend(weights)
         offsetlist.append(offset)
+        self.update_confidence()
         return self
 
     def add_support(self, reasons):
+        assert reasons
         return self.add_conjunction(reasons, self.support_flat, self.support_offsets, self.support_weights)
 
     def add_opposition(self, reasons):
@@ -142,13 +168,15 @@ class Justification(mon.EmbeddedDocument):
     
     def get_disjunction(self, flatlist, offsetlist, weightlist):
         disjunction = []
-        prev_offset = 0
-        for offset in offsetlist:
-            disjunction.append(zip(flatlist[prev_offset:offset],
-                                   weightlist[prev_offset:offset]))
-            prev_offset = offset
-        disjunction.append(zip(flatlist[prev_offset:],
-                               weightlist[prev_offset:]))
+        flatlist = [lookup_reason(x) for x in flatlist]
+        if offsetlist:
+            prev_offset = offsetlist[0]
+            for offset in offsetlist[1:]:
+                disjunction.append(zip(flatlist[prev_offset:offset],
+                                       weightlist[prev_offset:offset]))
+                prev_offset = offset
+            disjunction.append(zip(flatlist[prev_offset:],
+                                   weightlist[prev_offset:]))
         return disjunction
     
     def get_support(self):
@@ -173,6 +201,15 @@ class ConceptDBJustified(ConceptDBDocument):
 
     def add_oppose(self, reasons):
         self.justification = self.justification.add_oppose(reasons)
+
+    def confidence(self):
+        return self.justification.confidence_score
+
+    def get_support(self):
+        return self.justification.get_support()
+
+    def get_oppose(self):
+        return self.justification.get_oppose()
 
 def lookup_reason(reason):
     from conceptdb.metadata import ExternalReason
