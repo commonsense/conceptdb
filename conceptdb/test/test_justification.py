@@ -52,7 +52,7 @@ def test_justification():
     #make sure get_support, get_opposition equal original 
     assert j.get_support() == support
     assert j.get_opposition() == oppose
-
+    
     #add an identical clause and make sure the justification is unchanged
     j.add_support([(reasons[1], 0.5), (reasons[2],0.5),(reasons[3],0.5)])
     assert j.support_flat == ["/data/test/reason%d" % i for i in xrange(1,10)]

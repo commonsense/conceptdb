@@ -147,7 +147,7 @@ class Justification(mon.EmbeddedDocument):
         # weights as another, it should be updated instead.
 
         weighted_reasons = [transform_reason(r) for r in reasons]
-        dis = self.get_disjunction(flatlist, offsetlist, weightlist)
+        dis = self.get_disjunction(flatlist, offsetlist, weightlist, False)
         if weighted_reasons in dis: return self
 
         #check for conjunction with same reasons but different weights
@@ -180,9 +180,10 @@ class Justification(mon.EmbeddedDocument):
     def add_opposition(self, reasons):
         return self.add_conjunction(reasons, self.oppose_flat, self.oppose_offsets, self.oppose_weights)
     
-    def get_disjunction(self, flatlist, offsetlist, weightlist):
+    def get_disjunction(self, flatlist, offsetlist, weightlist, transformed = True):
         disjunction = []
-        flatlist = [lookup_reason(x) for x in flatlist]
+        if transformed:
+            flatlist = [lookup_reason(x) for x in flatlist]
         if offsetlist:
             prev_offset = offsetlist[0]
             for offset in offsetlist[1:]:
