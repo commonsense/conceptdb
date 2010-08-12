@@ -150,9 +150,23 @@ class Justification(mon.EmbeddedDocument):
         dis = self.get_disjunction(flatlist, offsetlist, weightlist)
         if weighted_reasons in dis: return self
 
+        #check for conjunction with same reasons but different weights
+
         offset = len(flatlist)
         reasons = [reason for reason, weight in weighted_reasons]
-        weights = [weight for reason, weight in weighted_reasons]
+        weights = [weight for reason,weight in weighted_reasons]
+        for i, conj in enumerate(dis):
+            if reasons == [reason for reason,weight in conj]:
+                off1 = offsetlist[i]
+                #update that conjunction only
+                if i == len(dis) - 1:
+                    off2 = offset
+                else:
+                    off2 = offsetlist[i + 1]
+                weightlist[off1:off2] = weights
+                self.update_confidence()
+                return self
+                #TODO: Test that ^
         flatlist.extend(reasons)
         weightlist.extend(weights)
         offsetlist.append(offset)
