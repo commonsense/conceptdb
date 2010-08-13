@@ -3,6 +3,12 @@ from conceptdb import ConceptDBDocument
 import numpy as np
 
 def transform_reason(r):
+    """
+    transform_reason accepts inputs of the form (reasonname, weight),
+    reasonname, (ConceptDBDocument, weight) and ConceptDBDocument
+    and returns (reasonname, weight).  If no weight was given in 
+    the input the weight defaults to 1.0.  
+    """
     if isinstance(r, tuple):
         reason, weight = r
     else:
@@ -10,6 +16,8 @@ def transform_reason(r):
         weight = 1.0
     if isinstance(reason, ConceptDBDocument):
         reason = reason.name
+        #TODO: in this case should weight be the reason's justification's
+        #confidence score?
     assert isinstance(reason, basestring)
     return (reason, weight)
 
@@ -64,7 +72,7 @@ class Justification(mon.EmbeddedDocument):
         support and oppose inputs consist of a list of lists of (ReasonID,
         weight) tuples. Method flattens them into mongodb friendly formats.
         """
-        # TODO: implement confidence scores
+
         support_flat = []
         oppose_flat = []
         support_offsets = []
@@ -91,9 +99,7 @@ class Justification(mon.EmbeddedDocument):
             flat, weight = zip(*l)
             oppose_flat.extend(flat)
             oppose_weights.extend(weight)
-
-        #I assume that since Justifications are embedded documents, there is no
-        #need to search for a duplicate before creating them?
+        #create justification
         j = Justification(
             support_flat = support_flat,
             oppose_flat = oppose_flat,
@@ -102,7 +108,7 @@ class Justification(mon.EmbeddedDocument):
             support_weights = support_weights,
             oppose_weights = oppose_weights
         )
-        j.update_confidence()
+        j.update_confidence() #calculate confidence score
         return j
     
     def update_confidence(self):
@@ -143,18 +149,19 @@ class Justification(mon.EmbeddedDocument):
         assert self.confidence_score <= 1.0
 
     def add_conjunction(self, reasons, flatlist, offsetlist, weightlist):
-        # FIXME: if a conjunction is added with the same reasons but different
-        # weights as another, it should be updated instead.
 
         weighted_reasons = [transform_reason(r) for r in reasons]
         dis = self.get_disjunction(flatlist, offsetlist, weightlist, False)
+
+        #if the exact clause to be added already exists in dis, do nothing
         if weighted_reasons in dis: return self
 
         #check for conjunction with same reasons but different weights
-
+        #if there is one, update the weights but do not add new conjunction
         offset = len(flatlist)
         reasons = [reason for reason, weight in weighted_reasons]
         weights = [weight for reason,weight in weighted_reasons]
+
         for i, conj in enumerate(dis):
             if reasons == [reason for reason,weight in conj]:
                 off1 = offsetlist[i]
@@ -166,7 +173,8 @@ class Justification(mon.EmbeddedDocument):
                 weightlist[off1:off2] = weights
                 self.update_confidence()
                 return self
-                #TODO: Test that ^
+
+        #if the conjunction of reasons does not exist in the disjunction, add it
         flatlist.extend(reasons)
         weightlist.extend(weights)
         offsetlist.append(offset)
@@ -174,10 +182,18 @@ class Justification(mon.EmbeddedDocument):
         return self
 
     def add_support(self, reasons):
-        assert reasons
+        """
+        add_support takes a conjunction given as a list of reasons as an argument
+        and adds it to the and/or tree for the support.
+        """
+        assert reasons #TODO: remove this?
         return self.add_conjunction(reasons, self.support_flat, self.support_offsets, self.support_weights)
 
     def add_opposition(self, reasons):
+        """
+        add_opposition takes a conjunction given as a list of reasons as an argument
+        and adds it to the and/or tree for the opposition.
+        """
         return self.add_conjunction(reasons, self.oppose_flat, self.oppose_offsets, self.oppose_weights)
     
     def get_disjunction(self, flatlist, offsetlist, weightlist, transformed = True):
