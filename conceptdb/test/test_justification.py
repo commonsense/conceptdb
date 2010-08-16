@@ -57,6 +57,23 @@ def test_justification():
     #make sure get_support, get_opposition equal original 
     assert j.get_support() == support
     assert j.get_opposition() == oppose
+    
+    #add an identical clause and make sure the justification is unchanged
+    j.add_support([(reasons[1], 0.5), (reasons[2],0.5),(reasons[3],0.5)])
+    assert j.support_flat == ["/data/test/reason%d" % i for i in xrange(1,10)]
+    assert j.support_offsets == [0, 3, 7]
+    assert j.support_weights == [0.5]*9
+    assert j.get_support() == support
+
+    #add a clause with the same reasons but different weights and make sure
+    #that only the weights change
+    j.add_support([(reasons[8], 0.5), (reasons[9], 0.6)])
+    assert j.support_flat == ["/data/test/reason%d" % i for i in xrange(1,10)]
+    assert j.support_offsets == [0, 3, 7]
+    assert j.support_weights == [0.5]*8 + [0.6]
+
+    #change it back for confidence score test
+    j.add_support([(reasons[8], 0.5), (reasons[9], 0.5)])
 
     #add new support and oppose clauses
     newSupport = [(reasons[15], 0.5), (reasons[16], 0.5), (reasons[17], 0.5)]

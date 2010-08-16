@@ -30,6 +30,8 @@ class ConceptDBHandler(BaseHandler):
             return self.assertionFind(request, obj_url)
         elif obj_url.startswith('/reason'):
             return self.reasonLookup(obj_url)
+        elif obj_url.startswith('/reasonusedfor'):
+            return self.reasonUsedFor(request, obj_url)
         elif obj_url.startswith('/concept'):
             return self.conceptLookup(request, obj_url)
         
@@ -97,6 +99,81 @@ class ConceptDBHandler(BaseHandler):
                 context = context).serialize()
         except DoesNotExist:
             return rc.NOT_FOUND
+
+
+    def reasonUsedFor(self, obj_url):
+        """Given a reason object (assertion or ExternalReason), returns all of the things
+        that the reason has been used to justify. Currently returns a list of the things
+        that use it in form {assertions: [list of assertions], sentence: [list of sentences],
+        expression: [list of expressions]}
+        
+        URL must take the form /api/reasonusedfor/{reason id}"""
+
+        #must look for the reason being used in Assertion, Sentence, and Expression
+        #TODO: should there be a limit on the number of things returned,  maybe also
+        #sorted by confidence scores?  Could be difficult since they reside in different
+        #collections.
+        
+        #TODO: figure out if there's a better way to do that
+        assertions = [] #list of assertion id's with obj_url as justification
+        cursor = Assertion.objects._collection.find({'justification.support_flat':obj_url})
+        
+        while(True):
+            try:
+                assertions.append(cursor.next())
+            except StopIteration:
+                break
+
+        cursor = Assertion.objects._collection.find({'justification.oppose_flat':obj_url})
+
+        while(True):
+            try:
+                assertions.append(cursor.next())
+            except StopIteration:
+                break
+        
+        expression = []
+        cursor = Assertion.objects._collection.find({'expressions.justification.support_flat':obj_url},{'expressions':1})
+
+        while(True):
+            try:
+                expression.append(cursor.next())
+            except StopIteration:
+                break
+
+        cursor = Assertion.objects._collection.find({'expressions.justification.oppose_flat':obj_url},{'expressions':1})
+
+        while(True):
+            try:
+                expression.append(cursor.next())
+            except StopIteration:
+                break
+
+        sentences = []
+        cursor = Sentence.objects._collection.find({'justification.support_flat':obj_url})
+
+        while(True):
+            try:
+                sentences.append(cursor.next())
+            except StopIteration:
+                break
+
+        cursor = Sentence.objects._collection.find({'justification.oppose_flat':obj_url})
+
+        while(True):
+            try:
+                sentences.append(cursor.next())
+            except StopIteration:
+                break
+
+
+        if len(sentences) == len(assertions) == len(expression) == 0:
+            #not used to justify anything
+            return rc.NOT_FOUND
+        
+        return "{'assertions':" + str(assertions) + ", 'sentences':" + str(sentences) 
+        + ", 'expressions':" + str(expressions) + "}"
+           
 
     def reasonLookup(self, obj_url):
         """Method allows you to look up an External Reason by its name.  
