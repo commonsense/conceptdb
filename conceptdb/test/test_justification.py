@@ -80,6 +80,7 @@ def test_justification():
     newOppose  = [(reasons[18], 0.5), (reasons[19], 0.5), (reasons[20], 0.5)]
     j.add_support(newSupport)
     j.add_oppose(newOppose)
+    j.update_confidence()
 
     #make sure flattened list components match expected
     assert j.support_flat == (["/data/test/reason%d" % i for i in xrange(1,10)]
@@ -104,6 +105,7 @@ def test_justification():
 
     # add one of the things again and make sure it doesn't count
     j.add_support(newSupport)
+    j.update_confidence()
     assert j.get_support() == support
     assert 0.26 < j.confidence_score < 0.27
 

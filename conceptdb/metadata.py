@@ -95,8 +95,14 @@ class ExternalReason(mon.Document, ConceptDBJustified):
         if reasons is not None:
             r.add_support(reasons)
             needs_save = True
-        if needs_save: r.save()
+        if needs_save:
+            r.update_confidence()
+            r.save()
         return r
+
+    def update_confidence(self):
+        if self.name_suffix() == '/root': return
+        ConceptDBJustified.update_confidence(self)
 
     def check_consistency(self):
         assert self.name.startswith(self.dataset)

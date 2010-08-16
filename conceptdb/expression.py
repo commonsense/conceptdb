@@ -41,9 +41,11 @@ class Expression(mon.EmbeddedDocument):
             if drop: args.append(BLANK)
             else: args.append(arg)
         e = Expression.make(self.frame, args, self.language)
+
         if reasons is not None:
             for otherreasons in self.justification.get_support():
                 e.add_support(tuple(reasons)+tuple(otherreasons))
+        e.update_confidence()
         return e
         
     def add_support(self, reasons):
@@ -51,4 +53,7 @@ class Expression(mon.EmbeddedDocument):
 
     def add_oppose(self, reasons):
         self.justification = self.justification.add_oppose(reasons)
+
+    def update_confidence(self):
+        self.justification.update_confidence()
 

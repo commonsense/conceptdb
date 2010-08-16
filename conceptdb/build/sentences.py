@@ -31,14 +31,11 @@ def import_sentence(sent):
 
 def import_sentences():
     print "importing sentences."
-    sentences = Sentence.objects.filter(score__gt=0)[4200:]
+    sentences = Sentence.objects.filter(score__gt=0, language__id='en')
     print len(sentences)
     for sent in sentences:
         activity = sent.activity.name
         if activity in BAD_ACTIVITIES: continue
-        if sent.language.id == 'pt': continue # our portuguese is broken
-        if sent.language.id == 'zh-Hant': continue # start Chinese over
-        if sent.language.id == 'ja': continue # can't handle this yet
         import_sentence(sent)
 
 if __name__ == '__main__':
