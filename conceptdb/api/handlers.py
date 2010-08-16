@@ -1,10 +1,13 @@
 from piston.handler import BaseHandler
 from piston.utils import throttle, rc
+from piston.authentication import HttpBasicAuthentication
 from conceptdb.assertion import Assertion, Sentence
 from conceptdb.metadata import Dataset, ExternalReason
 import conceptdb
 from mongoengine.queryset import DoesNotExist
+from csc.conceptnet.models import *
 
+basic_auth = HttpBasicAuthentication()
 
 conceptdb.connect_to_mongodb('test')
 
@@ -27,21 +30,28 @@ class ConceptDBHandler(BaseHandler):
             #matches /assertion/id, look up by id
             return self.assertionLookup(obj_url)
         elif obj_url.startswith('/assertionfind'):
+            #find assertion by identifying factors (dataset, concepts, relation, polarity, context)
             return self.assertionFind(request, obj_url)
         elif obj_url.startswith('/reason'):
+            #looks up a reason by its name
             return self.reasonLookup(obj_url)
         elif obj_url.startswith('/reasonusedfor'):
+            #returns all of the things that a reason has been used to justify
             return self.reasonUsedFor(request, obj_url)
         elif obj_url.startswith('/concept'):
+            #returns assertions that a concept has appeared in (as a concept, not relation or context)
+            #defaults to returning top 10 by justification but can be modified
             return self.conceptLookup(request, obj_url)
         
-        return {'message': 'you are looking for %s' % obj_url}
+        #if none of the above, return bad request.  
+        return rc.BAD_REQUEST
 
     @throttle(200,60,'update')
     def create(self, request, obj_url):
         #can start with /assertionmake or /assertionvote.  If assertionmake,
         #looks for the assertion.  If can't find, makes it and contributes
-        #a positive vote.  
+        #a positive vote.  If it can find it, contribute a positive vote
+        #and inform the user
 
         #if assertionvote, looks for the assertion and votes on it.  If it can't find
         #it nothing happens
@@ -237,9 +247,24 @@ class ConceptDBHandler(BaseHandler):
         arguments = argstr.split(',')
         polarity = int(request.POST.get('polarity','1'))
         context = request.POST.get('context','None')
+        user = request.POST['user']
+        password = request.POST['password']
 
         if context == "None":
             context = None
+
+        if User.objects.get(username=user).check_password(password):
+
+            #the user's password is correct.  Get their reason and add
+            #TODO: figure out how to parse usernames.  site:username? usename?
+            #for now assume username is equal to that user's ExternalReason name
+            try:
+                user_reason = ExternalReason.get(username)
+            except DoesNotExist:
+                #NOTE: maybe remove, why would the user not exist as an ExternalReason but exist in the user table?
+        else:
+            #incorrect password
+            return rc.FORBIDDEN
 
         try:
             assertion = Assertion.objects.get(
@@ -249,7 +274,7 @@ class ConceptDBHandler(BaseHandler):
                 polarity = polarity,
                 context = context)
 
-            assertion.add_support([]) #TODO: base on user's Reason
+            assertion.add_support([user_reason]) 
 
             return "The assertion you created already exists.  Your vote for this \
             assertion has been counted.\n" + assertion.serialize()
@@ -260,8 +285,8 @@ class ConceptDBHandler(BaseHandler):
                         relation = relation,
                         polarity = polarity,
                         context = context)
-
-            assertion.add_support([]) #TODO: base on user's reason
+            
+            assertion.add_support([user_reason]) 
 
             return assertion.serialize()
 
@@ -281,6 +306,24 @@ class ConceptDBHandler(BaseHandler):
 
         /api/assertionidvote?id={id}&vote={vote}
         """
+        
+        user = request.POST['username']
+        password = request.POST['password']
+
+         
+        if User.objects.get(username=user).check_password(password):
+
+            #the user's password is correct.  Get their reason and add
+            #TODO: figure out how to parse usernames.  site:username? usename?
+            #for now assume username is equal to that user's ExternalReason name
+            try:
+                user_reason = ExternalReason.get(username)
+            except DoesNotExist:
+                #NOTE: maybe remove, why would the user not exist as an ExternalReason but exist in the user table?
+        else:
+            #incorrect password
+            return rc.FORBIDDEN
+            
 
         if obj_url.startswith('/assertionvote'):
             dataset = request.POST['dataset']
@@ -292,6 +335,7 @@ class ConceptDBHandler(BaseHandler):
             if context == "None":
                 context = None
 
+            
             try:
                  assertion = Assertion.objects.get(
                      dataset = dataset,
@@ -312,10 +356,10 @@ class ConceptDBHandler(BaseHandler):
         vote = request.POST['vote']
 
         if vote == "1": #vote in favor
-            assertion.add_support([]) #TODO: base on user's reason
+            assertion.add_support([user_reason]) 
         elif vote == "-1": #vote against
-            assertion.add_oppose([]) #TODO: base on user's reason
+            assertion.add_oppose([user_reason])
         else: #invalid vote
-            return {"message":"Vote value invalid."}
+            return rc.BAD_REQUEST
 
         return assertion.serialize()
