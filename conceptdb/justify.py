@@ -2,7 +2,7 @@ import mongoengine as mon
 from conceptdb import ConceptDBDocument
 import numpy as np
 
-def transform_reason(r):
+def transform_reason(r, dereference=False):
     """
     transform_reason accepts inputs of the form (reasonname, weight),
     reasonname, (ConceptDBDocument, weight) and ConceptDBDocument
@@ -10,16 +10,22 @@ def transform_reason(r):
     the input the weight defaults to 1.0.  
     """
     if isinstance(r, tuple):
-        reason, weight = r
+        r2, weight = r
     else:
-        reason = r
+        r2 = r
         weight = 1.0
-    if isinstance(reason, ConceptDBDocument):
-        reason = reason.name
-        #TODO: in this case should weight be the reason's justification's
-        #confidence score?
-    assert isinstance(reason, basestring)
-    return (reason, weight)
+    if isinstance(r2, ConceptDBDocument):
+        reason = r2
+        rname = r2.name
+    else:
+        if dereference: reason = lookup_reason(r2)
+        rname = r2
+    
+    if dereference:
+        assert isinstance(reason, ConceptDBDocument)
+        return (reason, weight)
+    assert isinstance(rname, basestring)
+    return (rname, weight)
 
 class Justification(mon.EmbeddedDocument):
     """
@@ -123,12 +129,25 @@ class Justification(mon.EmbeddedDocument):
         # right idea.
         inv_prob = 1.0
         for conjunction in disjunction: # what's your function
-            prob = 1.0
-            for reason, weight in conjunction:
-                confidence = np.clip(reason.confidence(), 0, 1) * np.clip(weight, 0, 1)
-                prob *= confidence
-            inv_prob *= (1.0 - prob)
+            inv_prob *= (1.0 - self._conjunction_confidence(conjunction))
         return (1.0 - inv_prob)
+
+    def _conjunction_confidence(self, conjunction):
+        prob = 1.0
+        for reason, weight in conjunction:
+            confidence = np.clip(reason.confidence(), 0, 1) * np.clip(weight, 0, 1)
+            prob *= confidence
+        return prob
+
+    def increase_confidence(self, conjunction):
+        # untested and doesn't seem to work correctly
+        self.confidence_score = 1.0 - (1.0-self.confidence_score) * (1.0-self._conjunction_confidence(conjunction))
+        raise NotImplementedError
+
+    def decrease_confidence(self, conjunction):
+        # untested and doesn't seem to work correctly
+        self.confidence_score = self.confidence_score * (1.0-self._conjunction_confidence(conjunction))
+        raise NotImplementedError
 
     def check_consistency(self):
         for offset in self.support_offsets:
@@ -151,10 +170,10 @@ class Justification(mon.EmbeddedDocument):
     def add_conjunction(self, reasons, flatlist, offsetlist, weightlist):
 
         weighted_reasons = [transform_reason(r) for r in reasons]
-        dis = self.get_disjunction(flatlist, offsetlist, weightlist, False)
+        dis = self.get_disjunction(flatlist, offsetlist, weightlist, dereference=False)
 
         #if the exact clause to be added already exists in dis, do nothing
-        if weighted_reasons in dis: return self
+        if weighted_reasons in dis: return False
 
         #check for conjunction with same reasons but different weights
         #if there is one, update the weights but do not add new conjunction
@@ -171,15 +190,13 @@ class Justification(mon.EmbeddedDocument):
                 else:
                     off2 = offsetlist[i + 1]
                 weightlist[off1:off2] = weights
-                self.update_confidence()
-                return self
+                return True
 
         #if the conjunction of reasons does not exist in the disjunction, add it
         flatlist.extend(reasons)
         weightlist.extend(weights)
         offsetlist.append(offset)
-        self.update_confidence()
-        return self
+        return True
 
     def add_support(self, reasons):
         """
@@ -187,18 +204,20 @@ class Justification(mon.EmbeddedDocument):
         and adds it to the and/or tree for the support.
         """
         assert reasons #TODO: remove this?
-        return self.add_conjunction(reasons, self.support_flat, self.support_offsets, self.support_weights)
+        self.add_conjunction(reasons, self.support_flat, self.support_offsets, self.support_weights)
+        return self
 
     def add_opposition(self, reasons):
         """
         add_opposition takes a conjunction given as a list of reasons as an argument
         and adds it to the and/or tree for the opposition.
         """
-        return self.add_conjunction(reasons, self.oppose_flat, self.oppose_offsets, self.oppose_weights)
+        self.add_conjunction(reasons, self.oppose_flat, self.oppose_offsets, self.oppose_weights)
+        return self
     
-    def get_disjunction(self, flatlist, offsetlist, weightlist, transformed = True):
+    def get_disjunction(self, flatlist, offsetlist, weightlist, dereference=True):
         disjunction = []
-        if transformed:
+        if dereference:
             flatlist = [lookup_reason(x) for x in flatlist]
         if offsetlist:
             prev_offset = offsetlist[0]
@@ -210,13 +229,13 @@ class Justification(mon.EmbeddedDocument):
                                    weightlist[prev_offset:]))
         return disjunction
     
-    def get_support(self):
+    def get_support(self, dereference=True):
         return self.get_disjunction(self.support_flat, self.support_offsets,
-                                    self.support_weights)
+                                    self.support_weights, dereference)
 
-    def get_opposition(self):
+    def get_opposition(self, dereference=True):
         return self.get_disjunction(self.oppose_flat, self.oppose_offsets,
-                                    self.oppose_weights)
+                                    self.oppose_weights, dereference)
     
     # Aliases
     add_oppose = add_opposition
@@ -236,11 +255,14 @@ class ConceptDBJustified(ConceptDBDocument):
     def confidence(self):
         return self.justification.confidence_score
 
-    def get_support(self):
-        return self.justification.get_support()
+    def update_confidence(self):
+        self.justification.update_confidence()
 
-    def get_oppose(self):
-        return self.justification.get_oppose()
+    def get_support(self, dereference=True):
+        return self.justification.get_support(dereference)
+
+    def get_oppose(self, dereference=True):
+        return self.justification.get_oppose(dereference)
 
 def lookup_reason(reason):
     from conceptdb.metadata import ExternalReason
@@ -255,7 +277,8 @@ def lookup_reason(reason):
             assertion = Assertion.objects.with_id(a_id)
             return assertion
         elif reason.startswith('/data/'):
-            return ExternalReason.objects.with_id(reason)
+            ext = ExternalReason.objects.with_id(reason)
+            return ext
         else:
             raise NameError("I don't know what kind of reason %s is" % reason)
 

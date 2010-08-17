@@ -22,7 +22,7 @@ def test_assertion():
     a1.add_support([dataset.get_root_reason()])
     assert len(a1.justification.get_support()) == 1
     a1.save()
-    a1.make_generalizations()
+    a1.make_generalizations('/data/test/root')
     a2 = Assertion.objects.get(
         dataset='/data/test',
         relation='/rel/IsA',

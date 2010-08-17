@@ -16,13 +16,13 @@ CONTRIBUTOR_ROOT = '/contributor/omcs/'
 RELATION_ROOT = '/rel/conceptnet/'
 ACTIVITY_ROOT = '/activity/old/'
 DATASET_ROOT = '/data/conceptnet/4/'
-
 def import_assertions(lang):
+    dataset = Dataset.make(DATASET_ROOT+lang, lang)
+    root = dataset.get_root_reason()
+    generalize_reason = root.derived_reason('/rule/generalize').name
     assertions = OldAssertion.objects.filter(score__gt=0, language__id=lang)\
       .select_related('concept1', 'concept2', 'relation', 'language')[:10]
     for assertion in assertions:
-        dataset = Dataset.make(DATASET_ROOT+assertion.language.id,
-                               assertion.language.id)
         relation = RELATION_ROOT + assertion.relation.name
         concept_names = [assertion.concept1.text, assertion.concept2.text]
         concepts = [CONCEPT_ROOT+c for c in concept_names]
@@ -53,7 +53,6 @@ def import_assertions(lang):
                     voter = site.derived_reason(CONTRIBUTOR_ROOT+vote.user.username, weight=0.5)
                     expr.add_oppose([voter])
                 expressions.append(expr)
-                log.info(str(expr.to_mongo()))
 
                 sent = raw.sentence
                 if sent.score > 0:
@@ -76,7 +75,7 @@ def import_assertions(lang):
             newassertion.add_oppose([voter])
         starttime = time.time()
         newassertion.save()
-        newassertion.make_generalizations()
+        newassertion.make_generalizations(generalize_reason)
         endtime = time.time()
         log.info(newassertion)
 
@@ -85,8 +84,8 @@ def main():
     import_assertions('en')
 
 if __name__ == '__main__':
-    #import profile, pstats
-    #profile.run('main()', 'assertions.profile')
-    #p = pstats.Stats('assertions.profile')
-    #p.sort_stats('time').print_stats(50)
-    main()
+    import profile, pstats
+    profile.run('main()', 'assertions.profile')
+    p = pstats.Stats('assertions.profile')
+    p.sort_stats('cumulative').print_stats(50)
+    #main()

@@ -4,10 +4,15 @@ from conceptdb.metadata import Dataset, ExternalReason
 
 conceptdb.connect_to_mongodb('test')
 
-def test_justification():
+def setup():
     ExternalReason.drop_collection()
     Dataset.drop_collection()
 
+def teardown():
+    ExternalReason.drop_collection()
+    Dataset.drop_collection()
+
+def test_justification():
     #create empty justification
     empty = Justification.empty()
 
@@ -75,6 +80,7 @@ def test_justification():
     newOppose  = [(reasons[18], 0.5), (reasons[19], 0.5), (reasons[20], 0.5)]
     j.add_support(newSupport)
     j.add_oppose(newOppose)
+    j.update_confidence()
 
     #make sure flattened list components match expected
     assert j.support_flat == (["/data/test/reason%d" % i for i in xrange(1,10)]
@@ -97,6 +103,9 @@ def test_justification():
     assert j.get_support() == support
     assert j.get_opposition() == oppose
 
-    #clean up
-    ExternalReason.drop_collection()
-    Dataset.drop_collection()
+    # add one of the things again and make sure it doesn't count
+    j.add_support(newSupport)
+    j.update_confidence()
+    assert j.get_support() == support
+    assert 0.26 < j.confidence_score < 0.27
+

@@ -74,7 +74,7 @@ class Assertion(ConceptDBJustified, mon.Document):
         if needs_save: a.save()
         return a
 
-    def make_generalizations(self):
+    def make_generalizations(self, reason_name):
         pattern_pieces = []
         for arg in self.arguments:
             if arg == BLANK:
@@ -83,15 +83,18 @@ class Assertion(ConceptDBJustified, mon.Document):
                 pattern_pieces.append((True, False))
         for pattern in outer_iter(pattern_pieces):
             if True in pattern:
-                gen = self.generalize(pattern)
+                gen = self.generalize(pattern, reason_name)
                 gen.save()
 
-    def generalize(self, pattern):
+    def generalize(self, pattern, reason_name):
         args = []
         for arg, drop in zip(self.arguments, pattern):
             if drop: args.append(BLANK)
             else: args.append(arg)
-        reasons = (self.get_dataset().get_root_reason().derived_reason('/rule/generalize').name, self.name)
+        reasons = (
+          (reason_name, 1.0),
+          (self.name, 1.0)
+        )
         expressions = [expr.generalize(pattern, reasons) for expr in self.expressions]
         newassertion = Assertion.make(self.dataset, self.relation,
                                       args, self.polarity,
