@@ -64,7 +64,7 @@ class Assertion(ConceptDBJustified, mon.Document):
                 complete=(BLANK not in arguments),
                 context=context,
                 polarity=polarity,
-                expressions=expressions,
+                expressions=[],
                 justification=Justification.empty()
             )
             needs_save = True
@@ -72,9 +72,12 @@ class Assertion(ConceptDBJustified, mon.Document):
             a.add_support(reasons)
             needs_save = True
         if needs_save: a.save()
+        if expressions:
+            for e in expressions: a.add_expression(e)
+            a.save()
         return a
 
-    def make_generalizations(self, reason_name):
+    def make_generalizations(self, reason):
         pattern_pieces = []
         for arg in self.arguments:
             if arg == BLANK:
@@ -83,19 +86,30 @@ class Assertion(ConceptDBJustified, mon.Document):
                 pattern_pieces.append((True, False))
         for pattern in outer_iter(pattern_pieces):
             if True in pattern:
-                gen = self.generalize(pattern, reason_name)
+                gen = self.generalize(pattern, reason)
+                gen.update_confidence()
                 gen.save()
+    
+    def make_expression_name(self, eid):
+        return "/expression/%s/%s" % (self.id, eid)
 
-    def generalize(self, pattern, reason_name):
+    def expression_with_id(self, eid):
+        name = self.make_expression_name(eid)
+        for e in self.expressions:
+            if e.name == name:
+                return e
+        raise DoesNotExist
+
+    def generalize(self, pattern, reason):
         args = []
         for arg, drop in zip(self.arguments, pattern):
             if drop: args.append(BLANK)
             else: args.append(arg)
         reasons = (
-          (reason_name, 1.0),
-          (self.name, 1.0)
+          (reason, 1.0),
+          (self, 1.0)
         )
-        expressions = [expr.generalize(pattern, reasons) for expr in self.expressions]
+        expressions = [expr.generalize(pattern, reason) for expr in self.expressions]
         newassertion = Assertion.make(self.dataset, self.relation,
                                       args, self.polarity,
                                       self.context, reasons, expressions)
@@ -112,6 +126,9 @@ class Assertion(ConceptDBJustified, mon.Document):
         # TODO: more consistency checks
         assert (self.polarity == 1 or self.polarity == 0 or self.polarity == -1) #valid polarity
         assert (self.complete == 1 or self.complete == 0) #valid boolean value
+        
+        # expressions are unique
+        assert len(set(self.expressions)) == len(self.expressions)
 
         #maybe there should be checks with relation to # of arguments
         #how will more than 2 concepts as arguments work? 1 specific
@@ -122,19 +139,38 @@ class Assertion(ConceptDBJustified, mon.Document):
         self.justification.check_consistency()
     
     def add_expression(self, expr):
+        expr.generate_name(self)
+        for e in self.expressions:
+            if expr == e:
+                for support in expr.get_support():
+                    e.add_support(support)
+                for oppose in expr.get_oppose():
+                    e.add_oppose(oppose)
+                return e
         self.append('expressions', expr, db_only=False)
+        return expr
     
-    def quick_add_expression(self, expr):
-        self.append('expressions', expr, db_only=True)
+    def make_expression(self, frame, arguments, language, reasons, quick=False):
+        expr = Expression.make(frame, arguments, language)
+        for e in self.expressions:
+            if expr == e: return e
+        expr.add_support(reasons)
+        expr.generate_name(self)
+        self.append('expressions', expr, quick)
+
+    def quick_make_expression(self, frame, arguments, language, reasons):
+        return self.make_expression(frame, arguments, language, reasons, True)
     
-    def __str__(self):
+    def __unicode__(self):
         polstr = '?'
         if self.polarity == 1: polstr = '+'
         elif self.polarity == -1: polstr = '-'
-        return "%s%s(%s) in %s:%s" % (polstr, self.relation, self.argstr,
-                                      self.dataset, self.context)
-    def __repr__(self):
-        return "<Assertion: %s>" % self
+        if self.context is None: context='*'
+        else: context = self.context
+        rel = self.relation.split('/')[-1]
+        args = ', '.join([arg.split('/')[-1] for arg in self.argstr.split(',')])
+        return u"%s%s(%s) in %s:%s" % (polstr, rel, args,
+                                       self.dataset, context)
 
 class Sentence(ConceptDBJustified, mon.Document):
     text = mon.StringField(required=True)

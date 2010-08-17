@@ -1,18 +1,27 @@
 import mongoengine as mon
-from conceptdb.justify import Justification
+import pymongo
+from conceptdb.justify import Justification, ConceptDBJustified
 
 BLANK = '*'
-class Expression(mon.EmbeddedDocument):
+class Expression(mon.EmbeddedDocument, ConceptDBJustified):
     text = mon.StringField(required=True)
     frame = mon.StringField(required=True)
     language = mon.StringField(required=True)
     arguments = mon.ListField(mon.StringField())
+    name = mon.StringField()
     justification = mon.EmbeddedDocumentField(Justification)
 
     def check_consistency(self):
         assert (Expression.replace_args(self.frame, self.arguments)
                 == self.text)
         self.justification.check_consistency()
+
+    def generate_name(self, assertion):
+        if self.name:
+            raise ValueError("This expression is already named %s" % self.name)
+        else:
+            textid = self.text.replace(' ', '_').replace('/', '_')
+            self.name = "/expression/%s/%s" % (assertion.id, textid)
 
     @staticmethod
     def replace_args(frame, arguments):
@@ -35,16 +44,17 @@ class Expression(mon.EmbeddedDocument):
             justification=Justification.empty()
         )
 
-    def generalize(self, pattern, reasons=None):
+    def generalize(self, pattern, reason):
         args = []
         for arg, drop in zip(self.arguments, pattern):
             if drop: args.append(BLANK)
             else: args.append(arg)
         e = Expression.make(self.frame, args, self.language)
-
-        if reasons is not None:
-            for otherreasons in self.justification.get_support():
-                e.add_support(tuple(reasons)+tuple(otherreasons))
+        reasons = [
+            (reason, 1.0),
+            (self, 1.0)
+        ]
+        e.add_support(reasons)
         e.update_confidence()
         return e
         
@@ -56,4 +66,19 @@ class Expression(mon.EmbeddedDocument):
 
     def update_confidence(self):
         self.justification.update_confidence()
+    
+    def __cmp__(self, other):
+        if not isinstance(other, Expression): return -1
+        return cmp((self.frame, self.text), (other.frame, other.text))
+    
+    def __eq__(self, other):
+        return cmp(self, other) == 0
 
+    def __ne__(self, other):
+        return cmp(self, other) != 0
+
+    def __hash__(self):
+        return hash((self.frame, self.text))
+
+    def __unicode__(self):
+        return self.text

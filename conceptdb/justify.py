@@ -5,7 +5,7 @@ import numpy as np
 def transform_reason(r, dereference=False):
     """
     transform_reason accepts inputs of the form (reasonname, weight),
-    reasonname, (ConceptDBDocument, weight) and ConceptDBDocument
+    reasonname, (ConceptDBJustified, weight) and ConceptDBJustified
     and returns (reasonname, weight).  If no weight was given in 
     the input the weight defaults to 1.0.  
     """
@@ -14,7 +14,7 @@ def transform_reason(r, dereference=False):
     else:
         r2 = r
         weight = 1.0
-    if isinstance(r2, ConceptDBDocument):
+    if isinstance(r2, ConceptDBJustified):
         reason = r2
         rname = r2.name
     else:
@@ -22,7 +22,7 @@ def transform_reason(r, dereference=False):
         rname = r2
     
     if dereference:
-        assert isinstance(reason, ConceptDBDocument)
+        assert isinstance(reason, ConceptDBJustified)
         return (reason, weight)
     assert isinstance(rname, basestring)
     return (rname, weight)
@@ -266,7 +266,7 @@ class ConceptDBJustified(ConceptDBDocument):
 
 def lookup_reason(reason):
     from conceptdb.metadata import ExternalReason
-    if isinstance(reason, ConceptDBDocument):
+    if isinstance(reason, ConceptDBJustified):
         return reason
     else:
         assert isinstance(reason, basestring)
@@ -279,6 +279,14 @@ def lookup_reason(reason):
         elif reason.startswith('/data/'):
             ext = ExternalReason.objects.with_id(reason)
             return ext
+        elif reason.startswith('/expression'):
+            from conceptdb.assertion import Assertion, Expression
+            parts = reason.split('/')
+            a_id = parts[2]
+            e_id = parts[3]
+            assertion = Assertion.objects.with_id(a_id)
+            expression = assertion.expression_with_id(e_id)
+            return expression
         else:
             raise NameError("I don't know what kind of reason %s is" % reason)
 

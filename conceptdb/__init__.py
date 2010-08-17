@@ -115,12 +115,10 @@ class ConceptDBDocument(object):
     def to_json(self):
         return to_json(self)
 
-    def __repr__(self):
+    def __unicode__(self):
         assignments = ['%s=%r' % (key, value) for key, value in self.serialize().items()]
         assignments.sort()
-        return "%s(%s)" % (self.__class__.__name__,
-                           ', '.join(assignments))
+        return u"%s(%s)" % (self.__class__.__name__,
+                            ', '.join(assignments))
 
-    def __str__(self):
-        return repr(self)
 

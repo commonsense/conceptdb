@@ -38,7 +38,7 @@ def test_assertion():
     )
     assert a3.expressions[0].text == 'this assertion is a {1}'
     assert a3.justification.get_support()[0][1][0] == a1
-    assert a3.expressions[0].justification.get_support()[0][2][0] == dataset.get_root_reason()
+    assert a3.expressions[0].justification.get_support()[0][1][0] == e
     
     a4 = Assertion.objects.get(
         dataset='/data/test',
