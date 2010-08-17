@@ -24,25 +24,28 @@ class Dataset(ConceptDBDocument, mon.Document):
     def check_consistency(self):
         assert self.name.startswith('/data/')
 
-    def get_reason(self, reason):
-        if isinstance(reason, ConceptDBDocument):
-            assert reason.dataset == self.name
-            return reason
+    def get_reason(self, reason_name):
+        if isinstance(reason_name, ConceptDBDocument):
+            assert reason_name.dataset == self.name
+            return reason_name
         else:
-            assert isinstance(reason, basestring)
-            if reason.startswith('/assertion/'):
+            assert isinstance(reason_name, basestring)
+            if reason_name.startswith('/assertion/'):
                 from conceptdb.assertion import Assertion
-                parts = reason.split('/')
-                a_id = parts[2]
-                assertion = Assertion.objects.with_id(a_id)
+                parts = reason_name.split('/')
+                a_name = parts[2]
+                assertion = Assertion.objects.with_name(a_name)
                 assert assertion.dataset == self.name
                 return assertion
-            elif reason.startswith('/data/'):
-                assert reason.startswith(self.name)
-                return ExternalReason.objects.with_id(reason)
+            elif reason_name.startswith('/data/'):
+                assert reason_name.startswith(self.name)
+                return ExternalReason.objects.with_name(reason_name)
             else:
-                full_id = self.name+reason
-                return ExternalReason.objects.with_id(full_id)
+                full_name = self.name+reason_name
+                return ExternalReason.objects.with_name(full_name)
+    
+    def get_reason_name(self, reason_name):
+        return self.name+reason_name
 
     def get_root_reason(self):
         return ExternalReason.make(self.name, '/root')
