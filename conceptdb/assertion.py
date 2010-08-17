@@ -171,7 +171,9 @@ class Sentence(ConceptDBJustified, mon.Document):
         if reasons is not None:
             s.add_support(reasons)
             needs_save = True
-        if needs_save: s.save()
+        if needs_save:
+            s.update_confidence()
+            s.save()
         return s
     
     def check_consistency(self):
