@@ -9,7 +9,7 @@ from csc.conceptnet.models import *
 
 basic_auth = HttpBasicAuthentication()
 
-conceptdb.connect_to_mongodb('test')
+conceptdb.connect_to_mongodb('test') #NOTE: change when not testing
 
 class ConceptDBHandler(BaseHandler):
     """The ConceptDBHandler deals with all accesses to the conceptdb 
@@ -259,9 +259,10 @@ class ConceptDBHandler(BaseHandler):
             #TODO: figure out how to parse usernames.  site:username? usename?
             #for now assume username is equal to that user's ExternalReason name
             try:
-                user_reason = ExternalReason.get(username)
+                user_reason = ExternalReason.get(user)
             except DoesNotExist:
-                #NOTE: maybe remove, why would the user not exist as an ExternalReason but exist in the user table?
+                #if a user exists in the User table but doesn't have an ExternalReason created, do not allow
+                return rc.FORBIDDEN
         else:
             #incorrect password
             return rc.FORBIDDEN
@@ -315,11 +316,12 @@ class ConceptDBHandler(BaseHandler):
 
             #the user's password is correct.  Get their reason and add
             #TODO: figure out how to parse usernames.  site:username? usename?
-            #for now assume username is equal to that user's ExternalReason name
+            #for testing assume username is equal to that user's ExternalReason name
             try:
                 user_reason = ExternalReason.get(username)
             except DoesNotExist:
-                #NOTE: maybe remove, why would the user not exist as an ExternalReason but exist in the user table?
+                #if a user exists in the user table but doesn't have an ExternalReason, don't allow
+                return rc.FORBIDDEN
         else:
             #incorrect password
             return rc.FORBIDDEN
