@@ -5,7 +5,7 @@ from conceptdb.assertion import Assertion, Sentence
 from conceptdb.metadata import Dataset, ExternalReason
 import conceptdb
 from mongoengine.queryset import DoesNotExist
-from csc.conceptnet.models import *
+from csc.conceptnet.models import User
 
 basic_auth = HttpBasicAuthentication()
 
@@ -257,16 +257,16 @@ class ConceptDBHandler(BaseHandler):
 
             #the user's password is correct.  Get their reason and add
             #TODO: figure out how to parse usernames.  site:username? usename?
-            #for now assume username is equal to that user's ExternalReason name
+            #for now assume dataset + username is equal to that user's ExternalReason name
             try:
-                user_reason = ExternalReason.get(user)
+                reasonName = dataset + '/' + user + '/contributor'
+                user_reason = ExternalReason.get(reasonName)
             except DoesNotExist:
                 #if a user exists in the User table but doesn't have an ExternalReason created, do not allow
                 return rc.FORBIDDEN
         else:
             #incorrect password
             return rc.FORBIDDEN
-
         try:
             assertion = Assertion.objects.get(
                 dataset = dataset,
@@ -274,11 +274,11 @@ class ConceptDBHandler(BaseHandler):
                 argstr = argstr,
                 polarity = polarity,
                 context = context)
-
+            
             assertion.add_support([user_reason]) 
 
             return "The assertion you created already exists.  Your vote for this \
-            assertion has been counted.\n" + assertion.serialize()
+            assertion has been counted.\n" + str(assertion.serialize())
 
         except DoesNotExist:
             assertion = Assertion.make(dataset = dataset,
@@ -310,23 +310,8 @@ class ConceptDBHandler(BaseHandler):
         
         user = request.POST['username']
         password = request.POST['password']
-
+        
          
-        if User.objects.get(username=user).check_password(password):
-
-            #the user's password is correct.  Get their reason and add
-            #TODO: figure out how to parse usernames.  site:username? usename?
-            #for testing assume username is equal to that user's ExternalReason name
-            try:
-                user_reason = ExternalReason.get(username)
-            except DoesNotExist:
-                #if a user exists in the user table but doesn't have an ExternalReason, don't allow
-                return rc.FORBIDDEN
-        else:
-            #incorrect password
-            return rc.FORBIDDEN
-            
-
         if obj_url.startswith('/assertionvote'):
             dataset = request.POST['dataset']
             relation = request.POST['rel']
@@ -352,9 +337,24 @@ class ConceptDBHandler(BaseHandler):
 
             try:
                 assertion = Assertion.get(id)
+                dataset = assertion.dataset
             except DoesNotExist:
                 return rc.NOT_FOUND
+        
+        if User.objects.get(username=user).check_password(password):
 
+            #the user's password is correct.  Get their reason and add
+            #TODO: figure out how to parse usernames.  site:username? usename?
+            #for testing assume dataset + username is equal to that user's ExternalReason name
+            try:
+                user_reason = ExternalReason.get(dataset + '/' +  user+ '/contributor') #TODO: change
+            except DoesNotExist:
+                #if a user exists in the user table but doesn't have an ExternalReason, don't allow
+                return rc.FORBIDDEN
+        else:
+            #incorrect password
+            return rc.FORBIDDEN
+         
         vote = request.POST['vote']
 
         if vote == "1": #vote in favor
