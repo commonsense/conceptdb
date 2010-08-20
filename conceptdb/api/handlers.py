@@ -209,7 +209,7 @@ class ConceptDBHandler(BaseHandler):
         start = int(request.GET.get('start', '0'))
         limit = int(request.GET.get('limit', '10'))
 
-        cursor = Assertion.objects._collection.find({'arguments':obj_url}).skip(start).limit(limit)
+        cursor = Assertion.objects._collection.find({'arguments':obj_url}).order_by(-justification.confidence_score).skip(start).limit(limit)
         assertions = "["
 
         i = start
@@ -256,11 +256,9 @@ class ConceptDBHandler(BaseHandler):
         if User.objects.get(username=user).check_password(password):
 
             #the user's password is correct.  Get their reason and add
-            #TODO: figure out how to parse usernames.  site:username? usename?
-            #for now assume dataset + username is equal to that user's ExternalReason name
+            #NOTE: may need changing if there are ExternalReason names I don't account for here
             try:
-                reasonName = dataset + '/' + user + '/contributor'
-                user_reason = ExternalReason.get(reasonName)
+                user_reason = ExternalReason.get(dataset + '/contributor/' + user)
             except DoesNotExist:
                 #if a user exists in the User table but doesn't have an ExternalReason created, do not allow
                 return rc.FORBIDDEN
@@ -344,10 +342,9 @@ class ConceptDBHandler(BaseHandler):
         if User.objects.get(username=user).check_password(password):
 
             #the user's password is correct.  Get their reason and add
-            #TODO: figure out how to parse usernames.  site:username? usename?
-            #for testing assume dataset + username is equal to that user's ExternalReason name
+            #NOTE: may need changing if there are ExternalReason names I haven't accounted for
             try:
-                user_reason = ExternalReason.get(dataset + '/' +  user+ '/contributor') #TODO: change
+                user_reason = ExternalReason.get(dataset + '/contributor/' + user)
             except DoesNotExist:
                 #if a user exists in the user table but doesn't have an ExternalReason, don't allow
                 return rc.FORBIDDEN
