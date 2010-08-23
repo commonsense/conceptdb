@@ -5,6 +5,7 @@ from conceptdb.assertion import Assertion, Sentence
 from conceptdb.metadata import Dataset, ExternalReason
 import conceptdb
 from mongoengine.queryset import DoesNotExist
+from mongoengine.base import ValidationError
 from csc.conceptnet.models import User
 
 basic_auth = HttpBasicAuthentication()
@@ -23,7 +24,6 @@ class ConceptDBHandler(BaseHandler):
     @throttle(600,60,'read')
     def read(self, request, obj_url):
         obj_url = '/'+obj_url
-
         if obj_url.startswith('/data'):#try to find matching dataset
             return self.datasetLookup(obj_url)
         elif obj_url.startswith('/assertion/'):
@@ -32,12 +32,12 @@ class ConceptDBHandler(BaseHandler):
         elif obj_url.startswith('/assertionfind'):
             #find assertion by identifying factors (dataset, concepts, relation, polarity, context)
             return self.assertionFind(request, obj_url)
+        elif obj_url.startswith('/reasonusedfor'):
+            #returns all of the things that a reason has been used to justify
+            return self.reasonUsedFor(obj_url)
         elif obj_url.startswith('/reason'):
             #looks up a reason by its name
             return self.reasonLookup(obj_url)
-        elif obj_url.startswith('/reasonusedfor'):
-            #returns all of the things that a reason has been used to justify
-            return self.reasonUsedFor(request, obj_url)
         elif obj_url.startswith('/concept'):
             #returns assertions that a concept has appeared in (as a concept, not relation or context)
             #defaults to returning top 10 by justification but can be modified
@@ -78,6 +78,8 @@ class ConceptDBHandler(BaseHandler):
         try:
             return Assertion.get(obj_url.replace('/assertion/', '')).serialize()    
         except DoesNotExist:
+            return rc.NOT_FOUND
+        except ValidationError: #raised if input is not a valid id
             return rc.NOT_FOUND
 
     def assertionFind(self, request, obj_url):
@@ -124,55 +126,56 @@ class ConceptDBHandler(BaseHandler):
         #sorted by confidence scores?  Could be difficult since they reside in different
         #collections.
         
-        #TODO: figure out if there's a better way to do that
+        #TODO: figure out if there's a better way to do this
+        reasonName = obj_url.replace('/reasonusedfor', '')
         assertions = [] #list of assertion id's with obj_url as justification
-        cursor = Assertion.objects._collection.find({'justification.support_flat':obj_url})
+        cursor = Assertion.objects._collection.find({'justification.support_flat':reasonName})
+        while(True):
+            try:
+                assertion_id = cursor.next()['_id']
+                assertions.append(assertion_id)
+            except StopIteration:
+                break
+
+        cursor = Assertion.objects._collection.find({'justification.oppose_flat':reasonName})
+
+        while(True):
+            try:
+                assertions.append(cursor.next()['_id'])
+            except StopIteration:
+                break
         
+        expressions = []
+        cursor = Assertion.objects._collection.find({'expressions.justification.support_flat':reasonName})
+
         while(True):
             try:
-                assertions.append(cursor.next())
+                expressions.append(cursor.next()['_id'])
             except StopIteration:
                 break
 
-        cursor = Assertion.objects._collection.find({'justification.oppose_flat':obj_url})
+        cursor = Assertion.objects._collection.find({'expressions.justification.oppose_flat':reasonName})
 
         while(True):
             try:
-                assertions.append(cursor.next())
-            except StopIteration:
-                break
-        
-        expression = []
-        cursor = Assertion.objects._collection.find({'expressions.justification.support_flat':obj_url},{'expressions':1})
-
-        while(True):
-            try:
-                expression.append(cursor.next())
-            except StopIteration:
-                break
-
-        cursor = Assertion.objects._collection.find({'expressions.justification.oppose_flat':obj_url},{'expressions':1})
-
-        while(True):
-            try:
-                expression.append(cursor.next())
+                expressions.append(cursor.next()['_id'])
             except StopIteration:
                 break
 
         sentences = []
-        cursor = Sentence.objects._collection.find({'justification.support_flat':obj_url})
+        cursor = Sentence.objects._collection.find({'justification.support_flat':reasonName})
 
         while(True):
             try:
-                sentences.append(cursor.next())
+                sentences.append(cursor.next()['_id'])
             except StopIteration:
                 break
 
-        cursor = Sentence.objects._collection.find({'justification.oppose_flat':obj_url})
+        cursor = Sentence.objects._collection.find({'justification.oppose_flat':reasonName})
 
         while(True):
             try:
-                sentences.append(cursor.next())
+                sentences.append(cursor.next()['_id'])
             except StopIteration:
                 break
 
@@ -189,8 +192,10 @@ class ConceptDBHandler(BaseHandler):
         """Method allows you to look up an External Reason by its name.  
         Accessed by going to URL /api/reason/{name}
         """
-
-        return ExternalReason.get(obj_url.replace('/reason','')).serialize()
+        try:
+            return ExternalReason.get(obj_url.replace('/reason', '')).serialize()
+        except DoesNotExist:
+            return rc.NOT_FOUND
 
     def conceptLookup(self, request, obj_url):
         """
