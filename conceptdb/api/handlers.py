@@ -212,25 +212,21 @@ class ConceptDBHandler(BaseHandler):
 
         start = int(request.GET.get('start', '0'))
         limit = int(request.GET.get('limit', '10'))
+        conceptName = obj_url.replace('/concept/', '')
+        #NOTE: should return ranked by confidence score.  For now assume that they do.
+        cursor = Assertion.objects._collection.find({'arguments':conceptName})[start:start + limit]
+        assertions = []
 
-        cursor = Assertion.objects._collection.find({'arguments':obj_url}).order_by(-justification.confidence_score).skip(start).limit(limit)
-        assertions = "["
-
-        i = start
-        while (i < start + limit):
+        while (True):
             try:
-                assertions = assertions + str(cursor.next()) + ", "
+                assertions.append(str(cursor.next()['_id']))
             except StopIteration:
                 break #no more assertions within the skip/limit boundaries
-            i += 1
-        
-        assertions = assertions[:len(assertions) - 2] #strip last ', '
-        assertions = assertions + "]"
 
-        if i == start: #no assertions were found for the concept
+        if len(assertions) == 0: #no assertions were found for the concept
             return rc.NOT_FOUND
 
-        return assertions
+        return "{assertions: " + str(assertions) + "}"
 
     def assertionMake(self, request, obj_url):
         """This method takes the unique identifiers of an assertion as its arguments:
