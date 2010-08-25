@@ -237,7 +237,7 @@ class ConceptDBHandler(BaseHandler):
 
         Accessed by going to the URL
         /api/assertionmake?dataset={dataset}&rel={relation}&concepts={concept1,concept2,etc}&
-        polarity={polarity}&context={context}
+        polarity={polarity}&context={context}&user={username}&password={password}
 
         Polarity and context are optional, defaulting to polarity = 1 context = None
         """
@@ -299,14 +299,14 @@ class ConceptDBHandler(BaseHandler):
 
         Can be accessed through either of the following URLS:
         /api/assertionvote?dataset={dataset}&rel={relation}&concept={concept1,concept2,etc}
-        &polarity={polarity}&context={context}&vote={vote}
+        &polarity={polarity}&context={context}&vote={vote}&user={username}&password={password}
 
         polarity and context are optional values, defaulting to polarity = 1 and context = None
 
         /api/assertionidvote?id={id}&vote={vote}
         """
         
-        user = request.POST['username']
+        user = request.POST['user']
         password = request.POST['password']
         
          
