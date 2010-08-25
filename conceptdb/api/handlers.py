@@ -180,12 +180,11 @@ class ConceptDBHandler(BaseHandler):
                 break
 
 
-        if len(sentences) == len(assertions) == len(expression) == 0:
+        if len(sentences) == len(assertions) == len(expressions) == 0:
             #not used to justify anything
             return rc.NOT_FOUND
         
-        return "{'assertions':" + str(assertions) + ", 'sentences':" + str(sentences) 
-        + ", 'expressions':" + str(expressions) + "}"
+        return "{'assertions':" + str(assertions) + ", 'sentences':" + str(sentences) + ", 'expressions':" + str(expressions) + "}"
            
 
     def reasonLookup(self, obj_url):

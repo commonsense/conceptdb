@@ -148,6 +148,7 @@ class Assertion(ConceptDBJustified, mon.Document):
                     e.add_oppose(oppose)
                 return e
         self.append('expressions', expr, db_only=False)
+        self.save()
         return expr
     
     def make_expression(self, frame, arguments, language, reasons, quick=False):
