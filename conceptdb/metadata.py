@@ -103,6 +103,10 @@ class ExternalReason(mon.Document, ConceptDBJustified):
             r.save()
         return r
 
+    @memoize
+    def get_from_cache(name, recache = False):
+        ExternalReason.get(name)
+
     def update_confidence(self):
         if self.name_suffix() == '/root': return
         ConceptDBJustified.update_confidence(self)
@@ -130,3 +134,28 @@ class ExternalReason(mon.Document, ConceptDBJustified):
         return "<ExternalReason: %s>" % self.name
     def __repr__(self):
         return "<ExternalReason: %s>" % self.name
+
+class memoized(object):
+    """Decorator that cache's a function's return value, and
+    lets you update the value in the cache"""
+
+    def __init__(self, func):
+        self.func = func
+        self.cache = {}
+
+    def __call__(self, name, recache = False):
+        if recache == True:
+            value = self.func(name)
+            self.cache[name] = value
+            return value
+
+        try:
+            return self.cache[name]
+        except KeyError:
+            value = self.func(name)
+            self.cache[name] = value
+            return value
+
+    def __repr__(self):
+        """Return the function's docstring"""
+        return self.func.__doc__
