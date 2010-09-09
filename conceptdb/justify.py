@@ -207,7 +207,7 @@ class Justification(mon.EmbeddedDocument):
         add_support takes a conjunction given as a list of reasons as an argument
         and adds it to the and/or tree for the support.
         """
-        assert reasons #TODO: remove this?
+        assert isinstance(reasons,list) #NOTE:get weird behavior when added reason outright accidentally
         self.add_conjunction(reasons, self.support_flat, self.support_offsets, self.support_weights)
         return self
 
@@ -216,6 +216,7 @@ class Justification(mon.EmbeddedDocument):
         add_opposition takes a conjunction given as a list of reasons as an argument
         and adds it to the and/or tree for the opposition.
         """
+        assert isinstance(reasons,list) #NOTE:get weird behavior when added reason outright
         self.add_conjunction(reasons, self.oppose_flat, self.oppose_offsets, self.oppose_weights)
         return self
     
@@ -252,9 +253,11 @@ class ConceptDBJustified(ConceptDBDocument):
     """
     def add_support(self, reasons):
         self.justification = self.justification.add_support(reasons)
+        self.save()
 
     def add_oppose(self, reasons):
         self.justification = self.justification.add_oppose(reasons)
+        self.save()
 
     def confidence(self):
         return self.justification.confidence_score

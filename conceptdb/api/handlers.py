@@ -5,7 +5,8 @@ from conceptdb.assertion import Assertion, Sentence
 from conceptdb.metadata import Dataset, ExternalReason
 import conceptdb
 from mongoengine.queryset import DoesNotExist
-from csc.conceptnet.models import *
+from mongoengine.base import ValidationError
+from csc.conceptnet.models import User
 
 basic_auth = HttpBasicAuthentication()
 
@@ -23,7 +24,6 @@ class ConceptDBHandler(BaseHandler):
     @throttle(600,60,'read')
     def read(self, request, obj_url):
         obj_url = '/'+obj_url
-
         if obj_url.startswith('/data'):#try to find matching dataset
             return self.datasetLookup(obj_url)
         elif obj_url.startswith('/assertion/'):
@@ -32,12 +32,12 @@ class ConceptDBHandler(BaseHandler):
         elif obj_url.startswith('/assertionfind'):
             #find assertion by identifying factors (dataset, concepts, relation, polarity, context)
             return self.assertionFind(request, obj_url)
+        elif obj_url.startswith('/reasonusedfor'):
+            #returns all of the things that a reason has been used to justify
+            return self.reasonUsedFor(obj_url)
         elif obj_url.startswith('/reason'):
             #looks up a reason by its name
             return self.reasonLookup(obj_url)
-        elif obj_url.startswith('/reasonusedfor'):
-            #returns all of the things that a reason has been used to justify
-            return self.reasonUsedFor(request, obj_url)
         elif obj_url.startswith('/concept'):
             #returns assertions that a concept has appeared in (as a concept, not relation or context)
             #defaults to returning top 10 by justification but can be modified
@@ -78,6 +78,8 @@ class ConceptDBHandler(BaseHandler):
         try:
             return Assertion.get(obj_url.replace('/assertion/', '')).serialize()    
         except DoesNotExist:
+            return rc.NOT_FOUND
+        except ValidationError: #raised if input is not a valid id
             return rc.NOT_FOUND
 
     def assertionFind(self, request, obj_url):
@@ -124,73 +126,75 @@ class ConceptDBHandler(BaseHandler):
         #sorted by confidence scores?  Could be difficult since they reside in different
         #collections.
         
-        #TODO: figure out if there's a better way to do that
+        #TODO: figure out if there's a better way to do this
+        reasonName = obj_url.replace('/reasonusedfor', '')
         assertions = [] #list of assertion id's with obj_url as justification
-        cursor = Assertion.objects._collection.find({'justification.support_flat':obj_url})
+        cursor = Assertion.objects._collection.find({'justification.support_flat':reasonName})
+        while(True):
+            try:
+                assertion_id = cursor.next()['_id']
+                assertions.append(assertion_id)
+            except StopIteration:
+                break
+
+        cursor = Assertion.objects._collection.find({'justification.oppose_flat':reasonName})
+
+        while(True):
+            try:
+                assertions.append(cursor.next()['_id'])
+            except StopIteration:
+                break
         
+        expressions = []
+        cursor = Assertion.objects._collection.find({'expressions.justification.support_flat':reasonName})
+
         while(True):
             try:
-                assertions.append(cursor.next())
+                expressions.append(cursor.next()['_id'])
             except StopIteration:
                 break
 
-        cursor = Assertion.objects._collection.find({'justification.oppose_flat':obj_url})
+        cursor = Assertion.objects._collection.find({'expressions.justification.oppose_flat':reasonName})
 
         while(True):
             try:
-                assertions.append(cursor.next())
-            except StopIteration:
-                break
-        
-        expression = []
-        cursor = Assertion.objects._collection.find({'expressions.justification.support_flat':obj_url},{'expressions':1})
-
-        while(True):
-            try:
-                expression.append(cursor.next())
-            except StopIteration:
-                break
-
-        cursor = Assertion.objects._collection.find({'expressions.justification.oppose_flat':obj_url},{'expressions':1})
-
-        while(True):
-            try:
-                expression.append(cursor.next())
+                expressions.append(cursor.next()['_id'])
             except StopIteration:
                 break
 
         sentences = []
-        cursor = Sentence.objects._collection.find({'justification.support_flat':obj_url})
+        cursor = Sentence.objects._collection.find({'justification.support_flat':reasonName})
 
         while(True):
             try:
-                sentences.append(cursor.next())
+                sentences.append(cursor.next()['_id'])
             except StopIteration:
                 break
 
-        cursor = Sentence.objects._collection.find({'justification.oppose_flat':obj_url})
+        cursor = Sentence.objects._collection.find({'justification.oppose_flat':reasonName})
 
         while(True):
             try:
-                sentences.append(cursor.next())
+                sentences.append(cursor.next()['_id'])
             except StopIteration:
                 break
 
 
-        if len(sentences) == len(assertions) == len(expression) == 0:
+        if len(sentences) == len(assertions) == len(expressions) == 0:
             #not used to justify anything
             return rc.NOT_FOUND
         
-        return "{'assertions':" + str(assertions) + ", 'sentences':" + str(sentences) 
-        + ", 'expressions':" + str(expressions) + "}"
+        return "{'assertions':" + str(assertions) + ", 'sentences':" + str(sentences) + ", 'expressions':" + str(expressions) + "}"
            
 
     def reasonLookup(self, obj_url):
         """Method allows you to look up an External Reason by its name.  
         Accessed by going to URL /api/reason/{name}
         """
-
-        return ExternalReason.get(obj_url.replace('/reason','')).serialize()
+        try:
+            return ExternalReason.get(obj_url.replace('/reason', '')).serialize()
+        except DoesNotExist:
+            return rc.NOT_FOUND
 
     def conceptLookup(self, request, obj_url):
         """
@@ -208,25 +212,21 @@ class ConceptDBHandler(BaseHandler):
 
         start = int(request.GET.get('start', '0'))
         limit = int(request.GET.get('limit', '10'))
+        conceptName = obj_url.replace('/concept/', '')
+        #NOTE: should return ranked by confidence score.  For now assume that they do.
+        cursor = Assertion.objects._collection.find({'arguments':conceptName})[start:start + limit]
+        assertions = []
 
-        cursor = Assertion.objects._collection.find({'arguments':obj_url}).skip(start).limit(limit)
-        assertions = "["
-
-        i = start
-        while (i < start + limit):
+        while (True):
             try:
-                assertions = assertions + str(cursor.next()) + ", "
+                assertions.append(str(cursor.next()['_id']))
             except StopIteration:
                 break #no more assertions within the skip/limit boundaries
-            i += 1
-        
-        assertions = assertions[:len(assertions) - 2] #strip last ', '
-        assertions = assertions + "]"
 
-        if i == start: #no assertions were found for the concept
+        if len(assertions) == 0: #no assertions were found for the concept
             return rc.NOT_FOUND
 
-        return assertions
+        return "{assertions: " + str(assertions) + "}"
 
     def assertionMake(self, request, obj_url):
         """This method takes the unique identifiers of an assertion as its arguments:
@@ -237,7 +237,7 @@ class ConceptDBHandler(BaseHandler):
 
         Accessed by going to the URL
         /api/assertionmake?dataset={dataset}&rel={relation}&concepts={concept1,concept2,etc}&
-        polarity={polarity}&context={context}
+        polarity={polarity}&context={context}&user={username}&password={password}
 
         Polarity and context are optional, defaulting to polarity = 1 context = None
         """
@@ -256,17 +256,15 @@ class ConceptDBHandler(BaseHandler):
         if User.objects.get(username=user).check_password(password):
 
             #the user's password is correct.  Get their reason and add
-            #TODO: figure out how to parse usernames.  site:username? usename?
-            #for now assume username is equal to that user's ExternalReason name
+            #NOTE: may need changing if there are ExternalReason names I don't account for here
             try:
-                user_reason = ExternalReason.get(user)
+                user_reason = ExternalReason.get(dataset + '/contributor/' + user)
             except DoesNotExist:
                 #if a user exists in the User table but doesn't have an ExternalReason created, do not allow
                 return rc.FORBIDDEN
         else:
             #incorrect password
             return rc.FORBIDDEN
-
         try:
             assertion = Assertion.objects.get(
                 dataset = dataset,
@@ -274,11 +272,11 @@ class ConceptDBHandler(BaseHandler):
                 argstr = argstr,
                 polarity = polarity,
                 context = context)
-
+            
             assertion.add_support([user_reason]) 
 
             return "The assertion you created already exists.  Your vote for this \
-            assertion has been counted.\n" + assertion.serialize()
+            assertion has been counted.\n" + str(assertion.serialize())
 
         except DoesNotExist:
             assertion = Assertion.make(dataset = dataset,
@@ -301,32 +299,17 @@ class ConceptDBHandler(BaseHandler):
 
         Can be accessed through either of the following URLS:
         /api/assertionvote?dataset={dataset}&rel={relation}&concept={concept1,concept2,etc}
-        &polarity={polarity}&context={context}&vote={vote}
+        &polarity={polarity}&context={context}&vote={vote}&user={username}&password={password}
 
         polarity and context are optional values, defaulting to polarity = 1 and context = None
 
         /api/assertionidvote?id={id}&vote={vote}
         """
         
-        user = request.POST['username']
+        user = request.POST['user']
         password = request.POST['password']
-
+        
          
-        if User.objects.get(username=user).check_password(password):
-
-            #the user's password is correct.  Get their reason and add
-            #TODO: figure out how to parse usernames.  site:username? usename?
-            #for testing assume username is equal to that user's ExternalReason name
-            try:
-                user_reason = ExternalReason.get(username)
-            except DoesNotExist:
-                #if a user exists in the user table but doesn't have an ExternalReason, don't allow
-                return rc.FORBIDDEN
-        else:
-            #incorrect password
-            return rc.FORBIDDEN
-            
-
         if obj_url.startswith('/assertionvote'):
             dataset = request.POST['dataset']
             relation = request.POST['rel']
@@ -352,9 +335,23 @@ class ConceptDBHandler(BaseHandler):
 
             try:
                 assertion = Assertion.get(id)
+                dataset = assertion.dataset
             except DoesNotExist:
                 return rc.NOT_FOUND
+        
+        if User.objects.get(username=user).check_password(password):
 
+            #the user's password is correct.  Get their reason and add
+            #NOTE: may need changing if there are ExternalReason names I haven't accounted for
+            try:
+                user_reason = ExternalReason.get(dataset + '/contributor/' + user)
+            except DoesNotExist:
+                #if a user exists in the user table but doesn't have an ExternalReason, don't allow
+                return rc.FORBIDDEN
+        else:
+            #incorrect password
+            return rc.FORBIDDEN
+         
         vote = request.POST['vote']
 
         if vote == "1": #vote in favor
