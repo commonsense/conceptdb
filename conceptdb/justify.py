@@ -1,5 +1,6 @@
 import mongoengine as mon
 from conceptdb import ConceptDBDocument
+from log import Log
 import numpy as np
 
 def transform_reason(r, dereference=False):
@@ -135,6 +136,9 @@ class Justification(mon.EmbeddedDocument):
     def _conjunction_confidence(self, conjunction):
         prob = 1.0
         for reason, weight in conjunction:
+            if reason is None:
+                Log.record_error(self, 'missing reason', self.justification.to_json())
+                return 0.0
             confidence = np.clip(reason.confidence(), 0, 1) * np.clip(weight, 0, 1)
             prob *= confidence
         return prob

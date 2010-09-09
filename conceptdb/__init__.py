@@ -78,7 +78,6 @@ class ConceptDBDocument(object):
             for key, value in fields.items():
                 update['set__'+key] = value
             result = query.update_one(**update)
-            Log.record_update(self, fields)
             return result
         else:
             self[fieldname].append(value)
@@ -91,7 +90,6 @@ class ConceptDBDocument(object):
                 'push__'+fieldname: value
             }
             result = query.update_one(**update)
-            Log.record_append(self, {fieldname: value})
             return result
         else:
             self[fieldname].append(value)
@@ -105,8 +103,6 @@ class ConceptDBDocument(object):
         result = mon.Document.save(self)
         if prevstate is None:
             Log.record_new(self)
-        else:
-            Log.record_diff(self, prevstate)
         return result
     
     def serialize(self):
