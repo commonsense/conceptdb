@@ -41,7 +41,7 @@ def import_assertions(lang):
     site = root.derived_reason('/site/omcs', weight=1.0)
     generalize_reason = root.derived_reason('/rule/generalize', weight=0.1)
     assertions = OldAssertion.objects.filter(score__gt=0, language__id=lang)\
-      .select_related('concept1', 'concept2', 'relation', 'language')[27720:]
+      .select_related('concept1', 'concept2', 'relation', 'language')
     for assertion in assertions:
         relation = RELATION_ROOT + assertion.relation.name
         concept_names = [assertion.concept1.text, assertion.concept2.text]

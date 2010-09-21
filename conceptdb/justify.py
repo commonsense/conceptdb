@@ -1,5 +1,5 @@
 import mongoengine as mon
-from conceptdb import ConceptDBDocument
+from conceptdb import ConceptDBDocument, to_json
 from log import Log
 import numpy as np
 
@@ -115,7 +115,7 @@ class Justification(mon.EmbeddedDocument):
             support_weights = support_weights,
             oppose_weights = oppose_weights
         )
-        j.update_confidence() #calculate confidence score
+        #j.update_confidence() #calculate confidence score
         return j
     
     def update_confidence(self):
@@ -137,7 +137,6 @@ class Justification(mon.EmbeddedDocument):
         prob = 1.0
         for reason, weight in conjunction:
             if reason is None:
-                Log.record_error(self, 'missing reason', self.justification.to_json())
                 return 0.0
             confidence = np.clip(reason.confidence(), 0, 1) * np.clip(weight, 0, 1)
             prob *= confidence
@@ -160,10 +159,10 @@ class Justification(mon.EmbeddedDocument):
             assert offset < len(self.oppose_flat)
         for reason in self.support_flat:
             assert isinstance(reason, basestring)
-            lookup_reason(reason)
+            #lookup_reason(reason)
         for reason in self.oppose_flat:
             assert isinstance(reason, basestring)
-            lookup_reason(reason)
+            #lookup_reason(reason)
         if self.support_offsets: assert self.support_offsets[0] == 0
         if self.oppose_offsets: assert self.oppose_offsets[0] == 0
         assert len(self.support_flat) == len(self.support_weights)
@@ -282,9 +281,13 @@ def lookup_reason(reason):
             parts = reason.split('/')
             a_id = parts[2]
             assertion = Assertion.objects.with_id(a_id)
+            if assertion is None:
+                Log.record_error(None, 'missing reason', reason)
             return assertion
         elif reason.startswith('/data/'):
             ext = ExternalReason.objects.with_id(reason)
+            if ext is None:
+                Log.record_error(None, 'missing reason', reason)
             return ext
         elif reason.startswith('/expression'):
             from conceptdb.assertion import Assertion, Expression

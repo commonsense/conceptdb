@@ -42,10 +42,12 @@ class JSONScrubber(json.JSONEncoder):
         elif isinstance(obj, mon.Document):
             for token in self._iterencode_dict(obj.to_mongo(), markers):
                 yield token
+        elif isinstance(obj, mon.EmbeddedDocument):
+            yield str(obj)
         else:
             for token in json.JSONEncoder._iterencode_default(self, obj, markers):
                 yield token
-        
+
 def to_json(obj):
     return json.dumps(obj, cls=JSONScrubber)
 

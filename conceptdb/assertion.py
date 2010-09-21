@@ -87,7 +87,7 @@ class Assertion(ConceptDBJustified, mon.Document):
         for pattern in outer_iter(pattern_pieces):
             if True in pattern:
                 gen = self.generalize(pattern, reason)
-                gen.update_confidence()
+                #gen.update_confidence()
                 gen.save()
     
     def make_expression_name(self, eid):
@@ -105,10 +105,10 @@ class Assertion(ConceptDBJustified, mon.Document):
         for arg, drop in zip(self.arguments, pattern):
             if drop: args.append(BLANK)
             else: args.append(arg)
-        reasons = (
+        reasons = [
           (reason, 1.0),
           (self, 1.0)
-        )
+        ]
         expressions = [expr.generalize(pattern, reason) for expr in self.expressions]
         newassertion = Assertion.make(self.dataset, self.relation,
                                       args, self.polarity,
@@ -142,9 +142,9 @@ class Assertion(ConceptDBJustified, mon.Document):
         expr.generate_name(self)
         for e in self.expressions:
             if expr == e:
-                for support in expr.get_support():
+                for support in expr.get_support(dereference=False):
                     e.add_support(support)
-                for oppose in expr.get_oppose():
+                for oppose in expr.get_oppose(dereference=False):
                     e.add_oppose(oppose)
                 return e
         self.append('expressions', expr, db_only=False)
@@ -209,7 +209,7 @@ class Sentence(ConceptDBJustified, mon.Document):
             s.add_support(reasons)
             needs_save = True
         if needs_save:
-            s.update_confidence()
+            #s.update_confidence()
             s.save()
         return s
     
