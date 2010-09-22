@@ -42,7 +42,8 @@ class ConceptDBHandler(BaseHandler):
             #returns assertions that a concept has appeared in (as a concept, not relation or context)
             #defaults to returning top 10 by justification but can be modified
             return self.conceptLookup(request, obj_url)
-        
+        elif obj_url.startswith('/expression'):
+            return self.expressionLookup(obj_url)
         #if none of the above, return bad request.  
         return rc.BAD_REQUEST
 
@@ -114,6 +115,7 @@ class ConceptDBHandler(BaseHandler):
 
 
     def reasonUsedFor(self, obj_url):
+        #TODO: This method will have to change once justifications are changed
         """Given a reason object (assertion or ExternalReason), returns all of the things
         that the reason has been used to justify. Currently returns a list of the things
         that use it in form {assertions: [list of assertions], sentence: [list of sentences],
@@ -362,3 +364,34 @@ class ConceptDBHandler(BaseHandler):
             return rc.BAD_REQUEST
 
         return assertion.serialize()
+
+#TODO: Expression and Justification lookups?
+
+    def expressionLookup(self, obj_url):
+        try:
+            return Expression.objects.get(obj_url.replace('/expression/', ''))
+        except DoesNotExist:
+            return rc.NOT_FOUND
+
+#TODO: maybe expression lookup where given an assertion, while return given number of 
+#expressions that match the assertion -- similar to how concept lookup works now?
+
+    def assertionExpressionLookup(self, request, obj_url):
+        assertionID = request.GET['id']
+        start = int(request.GET.get('start', '0'))
+        limit = int(request.GET.get('limit', '10'))
+
+        #NOTE: should return ranked by confidence score.  For now assume that they do.
+        cursor = Assertion.objects._collection.find({'arguments':conceptName})[start:start + limit]
+        assertions = []
+
+        while (True):
+            try:
+                assertions.append(str(cursor.next()['_id']))
+            except StopIteration:
+                break #no more assertions within the skip/limit boundaries
+
+        if len(assertions) == 0: #no assertions were found for the concept
+            return rc.NOT_FOUND
+
+        return "{assertions: " + str(assertions) + "}"

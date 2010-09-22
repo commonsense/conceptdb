@@ -15,8 +15,7 @@ class Dataset(ConceptDBDocument, mon.Document):
         return get_nl(self.language)
     
     @staticmethod
-    def make(name, language):
-        #why is the language a dictionary now? - EH 7/23
+    def make(name, language):s
         d = Dataset.objects.get_or_create(name=name,
               defaults=dict(language=language))
         return d
@@ -53,18 +52,18 @@ class Dataset(ConceptDBDocument, mon.Document):
 EXT_REASON_TYPES = ['root', 'admin', 'site', 'contributor', 'rule', 'activity']
 class ExternalReason(mon.Document, ConceptDBJustified):
     """
-    An ExternalReason is a unit of justification. It indicates a reason to
-    believe some ConceptDBJustified object, when that reason is represented
-    outside of ConceptDB.
+An ExternalReason is a unit of justification. It indicates a reason to
+believe some ConceptDBJustified object, when that reason is represented
+outside of ConceptDB.
 
-    ExternalReasons must be associated with a particular dataset, so that they
-    are consistent with Assertions, and so that they can be synced between
-    different ConceptDBs independently.
+ExternalReasons must be associated with a particular dataset, so that they
+are consistent with Assertions, and so that they can be synced between
+different ConceptDBs independently.
 
-    Assertions are not the same as Reasons, but they may also be used as
-    units of justification. Use justify.lookup_reason() to get the appropriate
-    Assertion or Reason from an ID.
-    """
+Assertions are not the same as Reasons, but they may also be used as
+units of justification. Use justify.lookup_reason() to get the appropriate
+Assertion or Reason from an ID.
+"""
     name = mon.StringField(required=True, primary_key=True)
     justification = mon.EmbeddedDocumentField(Justification)
     dataset = mon.StringField(required=True)
@@ -103,10 +102,6 @@ class ExternalReason(mon.Document, ConceptDBJustified):
             r.save()
         return r
 
-    @memoize
-    def get_from_cache(name, recache = False):
-        ExternalReason.get(name)
-
     def update_confidence(self):
         if self.name_suffix() == '/root': return
         ConceptDBJustified.update_confidence(self)
@@ -135,27 +130,4 @@ class ExternalReason(mon.Document, ConceptDBJustified):
     def __repr__(self):
         return "<ExternalReason: %s>" % self.name
 
-class memoized(object):
-    """Decorator that cache's a function's return value, and
-    lets you update the value in the cache"""
 
-    def __init__(self, func):
-        self.func = func
-        self.cache = {}
-
-    def __call__(self, name, recache = False):
-        if recache == True:
-            value = self.func(name)
-            self.cache[name] = value
-            return value
-
-        try:
-            return self.cache[name]
-        except KeyError:
-            value = self.func(name)
-            self.cache[name] = value
-            return value
-
-    def __repr__(self):
-        """Return the function's docstring"""
-        return self.func.__doc__
