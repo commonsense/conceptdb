@@ -2,8 +2,7 @@ from csc.nl import get_nl
 from csc.conceptnet.models import Assertion as OldAssertion, RawAssertion, Vote, User, Activity
 
 import conceptdb
-from conceptdb.assertion import Assertion
-from conceptdb.expression import Expression
+from conceptdb.assertion import Assertion, Expression
 from conceptdb.metadata import Dataset, ExternalReason
 
 import time
@@ -41,12 +40,11 @@ def import_assertions(lang):
     site = root.derived_reason('/site/omcs', weight=1.0)
     generalize_reason = root.derived_reason('/rule/generalize', weight=0.1)
     assertions = OldAssertion.objects.filter(score__gt=0, language__id=lang)\
-      .select_related('concept1', 'concept2', 'relation', 'language')[27720:]
+      .select_related('concept1', 'concept2', 'relation', 'language')[:100]
     for assertion in assertions:
         relation = RELATION_ROOT + assertion.relation.name
         concept_names = [assertion.concept1.text, assertion.concept2.text]
         concepts = [CONCEPT_ROOT+c for c in concept_names]
-        votes = Vote.objects.filter(object_id=assertion.id)
         context = None
         if -5 < assertion.frequency < 5:
             context = '/concept/frequency/en/sometimes'
@@ -56,11 +54,22 @@ def import_assertions(lang):
                                          polarity = assertion.polarity,
                                          context=context)
         sent_contributors = set()
+        
+        support_votes = assertion.votes.filter(vote=1)
+        oppose_votes = assertion.votes.filter(vote=-1)
+        for vote in support_votes:
+            voter = dataset.get_reason_name(CONTRIBUTOR_ROOT+vote.user.username)
+            if voter not in sent_contributors:
+                newassertion.add_support([voter])
+        for vote in oppose_votes:
+            voter = dataset.get_reason_name(CONTRIBUTOR_ROOT+vote.user.username)
+            newassertion.add_oppose([voter])
+        newassertion.save()
 
         for raw in raws:
             if raw.score > 0:
                 frametext = raw.frame.text.replace('{1}','{0}').replace('{2}','{1}').replace('{%}','')
-                expr = Expression.make(frametext, [raw.surface1.text, raw.surface2.text], assertion.language.id)
+                expr = newassertion.make_expression(frametext, [raw.surface1.text, raw.surface2.text], assertion.language.id)
                 support_votes = raw.votes.filter(vote=1).select_related('user')
                 oppose_votes = raw.votes.filter(vote=-1).select_related('user')
                 for vote in support_votes:
@@ -69,8 +78,7 @@ def import_assertions(lang):
                 for vote in oppose_votes:
                     voter = dataset.get_reason_name(CONTRIBUTOR_ROOT+vote.user.username)
                     expr.add_oppose([voter])
-                expr.update_confidence()
-                newassertion.add_expression(expr)
+                expr.save()
 
                 sent = raw.sentence
                 if sent.score > 0:
@@ -82,17 +90,6 @@ def import_assertions(lang):
                     justification = [act_reason, voter]
                     newassertion.connect_to_sentence(dataset, sent.text, justification)
 
-        support_votes = assertion.votes.filter(vote=1)
-        oppose_votes = assertion.votes.filter(vote=-1)
-        for vote in support_votes:
-            voter = dataset.get_reason_name(CONTRIBUTOR_ROOT+vote.user.username)
-            if voter not in sent_contributors:
-                newassertion.add_support([voter])
-        for vote in oppose_votes:
-            voter = dataset.get_reason_name(CONTRIBUTOR_ROOT+vote.user.username)
-            newassertion.add_oppose([voter])
-        newassertion.update_confidence()
-        newassertion.save()
         newassertion.make_generalizations(generalize_reason)
         log.info(newassertion)
 

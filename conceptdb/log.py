@@ -2,7 +2,7 @@ import mongoengine as mon
 from datetime import datetime
 
 class Log(mon.Document):
-    object = mon.GenericReferenceField(required=True)
+    object = mon.GenericReferenceField()
     action = mon.StringField()
     data = mon.DictField()
     timestamp = mon.DateTimeField(default=datetime.utcnow)

@@ -1,7 +1,6 @@
 import mongoengine as mon
 from mongoengine.queryset import DoesNotExist
 from conceptdb.justify import Justification, ConceptDBJustified
-from conceptdb.expression import Expression
 from conceptdb.metadata import Dataset
 from conceptdb.util import outer_iter
 from conceptdb import ConceptDBDocument
@@ -15,7 +14,6 @@ class Assertion(ConceptDBJustified, mon.Document):
     complete = mon.IntField() # boolean
     context = mon.StringField() # concept ID
     polarity = mon.IntField() # 1, 0, or -1
-    expressions = mon.ListField(mon.EmbeddedDocumentField(Expression))
     justification = mon.EmbeddedDocumentField(Justification)
 
     meta = {'indexes': ['arguments',
@@ -38,10 +36,8 @@ class Assertion(ConceptDBJustified, mon.Document):
 
     @staticmethod
     def make(dataset, relation, arguments, polarity=1, context=None,
-             reasons=None, expressions=None):
+             reasons=None):
         needs_save = False
-        if expressions is None:
-            expressions = []
         if isinstance(arguments, basestring):
             argstr = arguments
         else:
@@ -64,7 +60,6 @@ class Assertion(ConceptDBJustified, mon.Document):
                 complete=(BLANK not in arguments),
                 context=context,
                 polarity=polarity,
-                expressions=[],
                 justification=Justification.empty()
             )
             needs_save = True
@@ -72,9 +67,6 @@ class Assertion(ConceptDBJustified, mon.Document):
             a.add_support(reasons)
             needs_save = True
         if needs_save: a.save()
-        if expressions:
-            for e in expressions: a.add_expression(e)
-            a.save()
         return a
 
     def make_generalizations(self, reason):
@@ -87,32 +79,24 @@ class Assertion(ConceptDBJustified, mon.Document):
         for pattern in outer_iter(pattern_pieces):
             if True in pattern:
                 gen = self.generalize(pattern, reason)
-                gen.update_confidence()
+                #gen.update_confidence()
                 gen.save()
     
-    def make_expression_name(self, eid):
-        return "/expression/%s/%s" % (self.id, eid)
-
-    def expression_with_id(self, eid):
-        name = self.make_expression_name(eid)
-        for e in self.expressions:
-            if e.name == name:
-                return e
-        raise DoesNotExist
-
     def generalize(self, pattern, reason):
         args = []
         for arg, drop in zip(self.arguments, pattern):
             if drop: args.append(BLANK)
             else: args.append(arg)
-        reasons = (
+        reasons = [
           (reason, 1.0),
           (self, 1.0)
-        )
-        expressions = [expr.generalize(pattern, reason) for expr in self.expressions]
+        ]
         newassertion = Assertion.make(self.dataset, self.relation,
                                       args, self.polarity,
-                                      self.context, reasons, expressions)
+                                      self.context, reasons)
+        for expr in self.get_expressions():
+            newexpr = expr.generalize(pattern, newassertion, reason)
+            newexpr.save()
         return newassertion
 
     def connect_to_sentence(self, dataset, text, reasons=None):
@@ -121,15 +105,15 @@ class Assertion(ConceptDBJustified, mon.Document):
 
     def get_dataset(self):
         return Dataset.objects.with_id(self.dataset)
+    
+    def get_expressions(self):
+        return Expression.objects(assertion=self)
 
     def check_consistency(self):
         # TODO: more consistency checks
         assert (self.polarity == 1 or self.polarity == 0 or self.polarity == -1) #valid polarity
         assert (self.complete == 1 or self.complete == 0) #valid boolean value
         
-        # expressions are unique
-        assert len(set(self.expressions)) == len(self.expressions)
-
         #maybe there should be checks with relation to # of arguments
         #how will more than 2 concepts as arguments work? 1 specific
         #example was VSO, where 3 concepts would map to a relation
@@ -138,30 +122,13 @@ class Assertion(ConceptDBJustified, mon.Document):
 
         self.justification.check_consistency()
     
-    def add_expression(self, expr):
-        expr.generate_name(self)
-        for e in self.expressions:
-            if expr == e:
-                for support in expr.get_support():
-                    e.add_support(support)
-                for oppose in expr.get_oppose():
-                    e.add_oppose(oppose)
-                return e
-        self.append('expressions', expr, db_only=False)
-        self.save()
-        return expr
-    
-    def make_expression(self, frame, arguments, language, reasons, quick=False):
-        expr = Expression.make(frame, arguments, language)
-        for e in self.expressions:
+    def make_expression(self, frame, arguments, language):
+        expr = Expression.make(self, frame, arguments, language)
+        for e in self.get_expressions():
             if expr == e: return e
-        expr.add_support(reasons)
-        expr.generate_name(self)
-        self.append('expressions', expr, quick)
+        expr.save()
+        return expr
 
-    def quick_make_expression(self, frame, arguments, language, reasons):
-        return self.make_expression(frame, arguments, language, reasons, True)
-    
     def __unicode__(self):
         polstr = '?'
         if self.polarity == 1: polstr = '+'
@@ -209,7 +176,7 @@ class Sentence(ConceptDBJustified, mon.Document):
             s.add_support(reasons)
             needs_save = True
         if needs_save:
-            s.update_confidence()
+            #s.update_confidence()
             s.save()
         return s
     
@@ -227,3 +194,84 @@ class Sentence(ConceptDBJustified, mon.Document):
     def quick_add_assertion(self, assertion):
         self.append('derived_assertions', assertion, db_only=True)
 
+BLANK = '*'
+class Expression(ConceptDBJustified, mon.Document):
+    assertion = mon.ReferenceField(Assertion, unique_with=('language', 'frame', 'text'))
+    text = mon.StringField(required=True)
+    frame = mon.StringField(required=True)
+    language = mon.StringField(required=True)
+    arguments = mon.ListField(mon.StringField())
+    justification = mon.EmbeddedDocumentField(Justification)
+
+    meta = {'indexes': ['assertion',
+                        'arguments',
+                        ('language', 'text'),
+                        ('language', 'frame', 'text')]}
+
+    def check_consistency(self):
+        assert (Expression.replace_args(self.frame, self.arguments)
+                == self.text)
+        assert len(self.arguments) == len(self.assertion.arguments)
+
+    @staticmethod
+    def replace_args(frame, arguments):
+        text_args = []
+        for index, arg in enumerate(arguments):
+            if arg == BLANK: text_args.append('{%d}' % index)
+            else: text_args.append(arg)
+        return frame.format(*text_args)
+    
+    @staticmethod
+    def make(assertion, frame, arguments, language):
+        text = Expression.replace_args(frame, arguments)
+        return Expression(
+            assertion=assertion,
+            text=text,
+            frame=frame,
+            arguments=arguments,
+            language=language,
+            justification=Justification.empty()
+        )
+    
+    @property
+    def name(self):
+        return "/expression/%s" % self.id
+
+    def generalize(self, pattern, assertion, reason):
+        args = []
+        for arg, drop in zip(self.arguments, pattern):
+            if drop: args.append(BLANK)
+            else: args.append(arg)
+        e = assertion.make_expression(self.frame, args, self.language)
+        reasons = [
+            (reason, 1.0),
+            (self, 1.0)
+        ]
+        e.add_support(reasons)
+        e.update_confidence()
+        return e
+        
+    def add_support(self, reasons):
+        self.justification = self.justification.add_support(reasons)
+
+    def add_oppose(self, reasons):
+        self.justification = self.justification.add_oppose(reasons)
+
+    def update_confidence(self):
+        self.justification.update_confidence()
+    
+    def __cmp__(self, other):
+        if not isinstance(other, Expression): return -1
+        return cmp((self.assertion, self.frame, self.text, self.language), (other.assertion, other.frame, other.text, other.language))
+    
+    def __eq__(self, other):
+        return cmp(self, other) == 0
+
+    def __ne__(self, other):
+        return cmp(self, other) != 0
+
+    def __hash__(self):
+        return hash((self.frame, self.text))
+
+    def __unicode__(self):
+        return self.text
