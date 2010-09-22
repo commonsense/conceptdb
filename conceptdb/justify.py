@@ -289,13 +289,13 @@ def lookup_reason(reason):
             if ext is None:
                 Log.record_error(None, 'missing reason', reason)
             return ext
-        elif reason.startswith('/expression'):
-            from conceptdb.assertion import Assertion, Expression
+        elif reason.startswith('/expression/'):
+            from conceptdb.assertion import Expression
             parts = reason.split('/')
-            a_id = parts[2]
-            e_id = parts[3]
-            assertion = Assertion.objects.with_id(a_id)
-            expression = assertion.expression_with_id(e_id)
+            e_id = parts[2]
+            expression = Expression.objects.with_id(e_id)
+            if expression is None:
+                Log.record_error(None, 'missing reason', reason)
             return expression
         else:
             raise NameError("I don't know what kind of reason %s is" % reason)
