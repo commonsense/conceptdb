@@ -1,6 +1,6 @@
 import mongoengine as mon
 from mongoengine.queryset import DoesNotExist
-from conceptdb.justify import Justification, ConceptDBJustified
+from conceptdb.justify import ConceptDBJustified
 from conceptdb.metadata import Dataset
 from conceptdb.util import outer_iter
 from conceptdb import ConceptDBDocument
@@ -14,14 +14,11 @@ class Assertion(ConceptDBJustified, mon.Document):
     complete = mon.IntField() # boolean
     context = mon.StringField() # concept ID
     polarity = mon.IntField() # 1, 0, or -1
-    justification = mon.EmbeddedDocumentField(Justification)
+    confidence = mon.FloatField(default=0.0)
 
-    meta = {'indexes': ['arguments',
-                        ('arguments', '-justification.confidence_score'),
+    meta = {'indexes': [('arguments', '-confidence'),
                         ('dataset', 'relation', 'polarity', 'argstr', 'context'),
-                        'justification.support_flat',
-                        'justification.oppose_flat',
-                        'justification.confidence_score',
+                        'confidence',
                        ]}
     
     @staticmethod
@@ -60,7 +57,6 @@ class Assertion(ConceptDBJustified, mon.Document):
                 complete=(BLANK not in arguments),
                 context=context,
                 polarity=polarity,
-                justification=Justification.empty()
             )
             needs_save = True
         if reasons is not None:
@@ -79,7 +75,6 @@ class Assertion(ConceptDBJustified, mon.Document):
         for pattern in outer_iter(pattern_pieces):
             if True in pattern:
                 gen = self.generalize(pattern, reason)
-                #gen.update_confidence()
                 gen.save()
     
     def generalize(self, pattern, reason):
@@ -120,8 +115,6 @@ class Assertion(ConceptDBJustified, mon.Document):
         #I would put in a check which makes sure that there are the
         #correct number of concepts for a given relation.
 
-        self.justification.check_consistency()
-    
     def make_expression(self, frame, arguments, language):
         expr = Expression.make(self, frame, arguments, language)
         for e in self.get_expressions():
@@ -144,14 +137,15 @@ class Sentence(ConceptDBJustified, mon.Document):
     text = mon.StringField(required=True)
     words = mon.ListField(mon.StringField())
     dataset = mon.StringField(required=True)
-    justification = mon.EmbeddedDocumentField(Justification)
     derived_assertions = mon.ListField(mon.ReferenceField(Assertion))
+    confidence = mon.FloatField(default=0.0)
 
     meta = {'indexes': ['dataset', 'words', 'text',
-                        'justification.support_flat',
-                        'justification.oppose_flat',
-                        'justification.confidence_score',
+                        'confidence'
                        ]}
+    @property
+    def name(self):
+        return '/sentence/%s' % self.id
     
     @staticmethod
     def make(dataset, text, reasons=None):
@@ -168,7 +162,6 @@ class Sentence(ConceptDBJustified, mon.Document):
                 text=text,
                 dataset=dataset,
                 words=datasetObj.nl.normalize(text).split(),
-                justification=Justification.empty(),
                 derived_assertions=[]
                )
             needs_save = True
@@ -176,13 +169,11 @@ class Sentence(ConceptDBJustified, mon.Document):
             s.add_support(reasons)
             needs_save = True
         if needs_save:
-            #s.update_confidence()
             s.save()
         return s
     
     def check_consistency(self):
         # TODO: check words match up
-        self.justification.check_consistency()
         self.get_dataset().check_consistency()
 
     def get_dataset(self):
@@ -203,7 +194,7 @@ class Expression(ConceptDBJustified, mon.Document):
     frame = mon.StringField(required=True)
     language = mon.StringField(required=True)
     arguments = mon.ListField(mon.StringField())
-    justification = mon.EmbeddedDocumentField(Justification)
+    confidence = mon.FloatField(default=0.0)
 
     meta = {'indexes': ['assertion',
                         'arguments',
@@ -232,7 +223,6 @@ class Expression(ConceptDBJustified, mon.Document):
             frame=frame,
             arguments=arguments,
             language=language,
-            justification=Justification.empty()
         )
     
     @property
@@ -250,18 +240,8 @@ class Expression(ConceptDBJustified, mon.Document):
             (self, 1.0)
         ]
         e.add_support(reasons)
-        e.update_confidence()
         return e
         
-    def add_support(self, reasons):
-        self.justification = self.justification.add_support(reasons)
-
-    def add_oppose(self, reasons):
-        self.justification = self.justification.add_oppose(reasons)
-
-    def update_confidence(self):
-        self.justification.update_confidence()
-    
     def __cmp__(self, other):
         if not isinstance(other, Expression): return -1
         return cmp((self.assertion, self.frame, self.text, self.language), (other.assertion, other.frame, other.text, other.language))
