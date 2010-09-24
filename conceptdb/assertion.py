@@ -33,7 +33,7 @@ class Assertion(ConceptDBJustified, mon.Document):
 
     @staticmethod
     def make(dataset, relation, arguments, polarity=1, context=None,
-             reasons=None):
+             reasons=None, weight=1.0):
         needs_save = False
         if isinstance(arguments, basestring):
             argstr = arguments
@@ -60,8 +60,7 @@ class Assertion(ConceptDBJustified, mon.Document):
             )
             needs_save = True
         if reasons is not None:
-            a.add_support(reasons)
-            needs_save = True
+            a.add_support(reasons, weight)
         if needs_save: a.save()
         return a
 
@@ -82,13 +81,10 @@ class Assertion(ConceptDBJustified, mon.Document):
         for arg, drop in zip(self.arguments, pattern):
             if drop: args.append(BLANK)
             else: args.append(arg)
-        reasons = [
-          (reason, 1.0),
-          (self, 1.0)
-        ]
+        reasons = [reason, self]
         newassertion = Assertion.make(self.dataset, self.relation,
                                       args, self.polarity,
-                                      self.context, reasons)
+                                      self.context, reasons, weight=1.0)
         for expr in self.get_expressions():
             newexpr = expr.generalize(pattern, newassertion, reason)
             newexpr.save()
@@ -233,11 +229,7 @@ class Expression(ConceptDBJustified, mon.Document):
             if drop: args.append(BLANK)
             else: args.append(arg)
         e = assertion.make_expression(self.frame, args, self.language)
-        reasons = [
-            (reason, 1.0),
-            (self, 1.0)
-        ]
-        e.add_support(reasons)
+        e.add_support([reason, self], 1.0)
         return e
         
     def __cmp__(self, other):
