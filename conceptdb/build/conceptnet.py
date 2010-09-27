@@ -21,10 +21,10 @@ def import_contributors(lang):
     dataset = Dataset.make(DATASET_ROOT+lang, lang)
     root = dataset.get_root_reason()
     site = dataset.get_reason('/site/omcs')
-    justify(site, [(root, 1.0)])
+    justify(site, [root], 1.0)
     for user in User.objects.iterator():
         contributor = dataset.get_reason(CONTRIBUTOR_ROOT+user.username)
-        justify(contributor, [(site, 0.5)])
+        justify(contributor, [site], 0.5)
         log.info(contributor)
 
 def import_activities(lang):
@@ -32,16 +32,16 @@ def import_activities(lang):
     site = dataset.get_reason('/site/omcs')
     for act in Activity.objects.iterator():
         newact = dataset.get_reason(ACTIVITY_ROOT+act.name.replace(' ', '_'))
-        justify(newact, [(site, 1.0)])
+        justify(newact, [site], 1.0)
         log.info(newact)
 
 def import_assertions(lang):
     dataset = Dataset.make(DATASET_ROOT+lang, lang)
     generalize_reason = dataset.get_reason('/rule/generalize')
-    justify(generalize_reason, [(dataset.get_root_reason(), 0.1)])
+    justify(generalize_reason, [dataset.get_root_reason()], 0.1)
 
     assertions = OldAssertion.objects.filter(score__gt=0, language__id=lang)\
-      .select_related('concept1', 'concept2', 'relation', 'language')[:100]
+      .select_related('concept1', 'concept2', 'relation', 'language')
     for assertion in assertions:
         relation = RELATION_ROOT + assertion.relation.name
         concept_names = [assertion.concept1.text, assertion.concept2.text]
