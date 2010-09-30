@@ -4,7 +4,7 @@ from conceptdb.justify import ConceptDBJustified
 from conceptdb.metadata import Dataset
 from conceptdb.util import outer_iter
 from conceptdb import ConceptDBDocument
-
+ 
 BLANK = '*'
 class Assertion(ConceptDBJustified, mon.Document):
     dataset = mon.StringField(required=True) # reference to Dataset
@@ -184,8 +184,6 @@ class Sentence(ConceptDBJustified, mon.Document):
 BLANK = '*'
 class Expression(ConceptDBJustified, mon.Document):
     assertion = mon.ReferenceField(Assertion, unique_with=('language', 'frame', 'text'))
-    #NOTE: why are these with assertions with specific langagues
-    #instead of in datasets?
     text = mon.StringField(required=True)
     frame = mon.StringField(required=True)
     language = mon.StringField(required=True)

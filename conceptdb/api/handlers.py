@@ -115,86 +115,70 @@ class ConceptDBHandler(BaseHandler):
 
 
     def reasonUsedFor(self, obj_url):
-        #TODO: This method will have to change once justifications are changed
-        """Given a reason object (assertion or ExternalReason), returns all of the things
+        """Given a factor in a Reason object, returns all of the things
         that the reason has been used to justify. Currently returns a list of the things
         that use it in form {assertions: [list of assertions], sentence: [list of sentences],
-        expression: [list of expressions]}
+        expression: [list of expressions]}.  If the reason has also been used to 
+        justify things that are not in the database (for instance Users), it will
+        inform you but not return the other items.  I might change this later.  
         
         URL must take the form /api/reasonusedfor/{reason id}"""
 
         #must look for the reason being used in Assertion, Sentence, and Expression
         #TODO: should there be a limit on the number of things returned,  maybe also
-        #sorted by confidence scores?  Could be difficult since they reside in different
-        #collections.
+        #sorted by confidence scores?  
         
-        #TODO: figure out if there's a better way to do this
         reasonName = obj_url.replace('/reasonusedfor', '')
         assertions = [] #list of assertion id's with obj_url as justification
-        cursor = Assertion.objects._collection.find({'justification.support_flat':reasonName})
+        expressions = [] #list of expressions with obj_url as justification
+        sentences = [] #list of sentences with obj_url as justification
+        other = False #
+        cursor = Reason.objects._collection.find({'factors':reasonName})
         while(True):
             try:
-                assertion_id = cursor.next()['_id']
-                assertions.append(assertion_id)
-            except StopIteration:
-                break
+                next_item = cursor.next().target
+                
+                #if target was the document itself, change to document name
+                if isinstance(next_item, ConceptDBDocument):
+                    next_item = next_item.name
 
-        cursor = Assertion.objects._collection.find({'justification.oppose_flat':reasonName})
+                if isinstance(next_item, basestring) == False:
+                    #not a ConceptDBDocument.
+                    other = True
+                    continue;
 
-        while(True):
-            try:
-                assertions.append(cursor.next()['_id'])
-            except StopIteration:
-                break
-        
-        expressions = []
-        cursor = Assertion.objects._collection.find({'expressions.justification.support_flat':reasonName})
-
-        while(True):
-            try:
-                expressions.append(cursor.next()['_id'])
-            except StopIteration:
-                break
-
-        cursor = Assertion.objects._collection.find({'expressions.justification.oppose_flat':reasonName})
-
-        while(True):
-            try:
-                expressions.append(cursor.next()['_id'])
-            except StopIteration:
-                break
-
-        sentences = []
-        cursor = Sentence.objects._collection.find({'justification.support_flat':reasonName})
-
-        while(True):
-            try:
-                sentences.append(cursor.next()['_id'])
-            except StopIteration:
-                break
-
-        cursor = Sentence.objects._collection.find({'justification.oppose_flat':reasonName})
-
-        while(True):
-            try:
-                sentences.append(cursor.next()['_id'])
+                #go through and add assertion ids to assertion list,
+                #expression ids to expression list,
+                #sentence ids to sentence list.  
+                if next_item.startswith('/assertion'):
+                    assertions.append(next_item.replace('/assertion/', ''))
+                elif next_item.startswith('/expression'):
+                    expressions.append(next_item.replace('/expression/', ''))
+                elif next_item.startswith('/sentence/'):
+                    sentences.append(next_item.replace('/sentence/', ''))
+                else: #not a database item
+                    other = True
             except StopIteration:
                 break
 
 
-        if len(sentences) == len(assertions) == len(expressions) == 0:
+        if (len(sentences) == len(assertions) == len(expressions) == 0) and (other == False):
             #not used to justify anything
             return rc.NOT_FOUND
+
+        ret = "{'assertions':" + str(assertions) + ", 'sentences':" + str(sentences) + ", 'expressions':" + str(expressions) + "}"
+
+        if other:
+            ret = ret + "\nThis reason is also used to justify non-database items."
         
-        return "{'assertions':" + str(assertions) + ", 'sentences':" + str(sentences) + ", 'expressions':" + str(expressions) + "}"
-           
+        return ret 
 
     def reasonLookup(self, obj_url):
-        """Method allows you to look up an External Reason by its name.  
-        Accessed by going to URL /api/reason/{name}
+        """Method allows you to look up a Reason by its id.  
+        Accessed by going to URL /api/reason/{id}
         """
         try:
-            return ExternalReason.get(obj_url.replace('/reason', '')).serialize()
+            return Reason.get(obj_url.replace('/reason', '')).serialize()
         except DoesNotExist:
             return rc.NOT_FOUND
 
@@ -276,7 +260,7 @@ class ConceptDBHandler(BaseHandler):
                 context = context)
             
             assertion.add_support([user_reason]) 
-
+            #TODO: test how this works with new reasons
             return "The assertion you created already exists.  Your vote for this \
             assertion has been counted.\n" + str(assertion.serialize())
 
@@ -346,6 +330,7 @@ class ConceptDBHandler(BaseHandler):
             #the user's password is correct.  Get their reason and add
             #NOTE: may need changing if there are ExternalReason names I haven't accounted for
             try:
+                #FIXME: new reasons.  How are user's reasons handled now?
                 user_reason = ExternalReason.get(dataset + '/contributor/' + user)
             except DoesNotExist:
                 #if a user exists in the user table but doesn't have an ExternalReason, don't allow
@@ -355,7 +340,7 @@ class ConceptDBHandler(BaseHandler):
             return rc.FORBIDDEN
          
         vote = request.POST['vote']
-
+        #FIXME: new reasons
         if vote == "1": #vote in favor
             assertion.add_support([user_reason]) 
         elif vote == "-1": #vote against
@@ -373,7 +358,7 @@ class ConceptDBHandler(BaseHandler):
         except DoesNotExist:
             return rc.NOT_FOUND
 
-#TODO: maybe expression lookup where given an assertion, while return given number of 
+# expression lookup where given an assertion, while return given number of 
 #expressions that match the assertion -- similar to how concept lookup works now?
 
     def assertionExpressionLookup(self, request, obj_url):
@@ -382,16 +367,16 @@ class ConceptDBHandler(BaseHandler):
         limit = int(request.GET.get('limit', '10'))
 
         #NOTE: should return ranked by confidence score.  For now assume that they do.
-        cursor = Assertion.objects._collection.find({'arguments':conceptName})[start:start + limit]
-        assertions = []
+        cursor = Expression.objects._collection.find({'assertion.id':assertionID})[start:start + limit]
+        expressions = []
 
         while (True):
             try:
-                assertions.append(str(cursor.next()['_id']))
+                expressions.append(str(cursor.next()['_id']))
             except StopIteration:
                 break #no more assertions within the skip/limit boundaries
 
-        if len(assertions) == 0: #no assertions were found for the concept
+        if len(expressions) == 0: #no assertions were found for the concept
             return rc.NOT_FOUND
 
-        return "{assertions: " + str(assertions) + "}"
+        return "{expressions: " + str(expressions) + "}"
