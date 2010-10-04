@@ -242,15 +242,24 @@ class ConceptDBHandler(BaseHandler):
         if User.objects.get(username=user).check_password(password):
 
             #the user's password is correct.  Get their reason and add
-            #NOTE: may need changing if there are ExternalReason names I don't account for here
-            try:
-                user_reason = ExternalReason.get(dataset + '/contributor/' + user)
-            except DoesNotExist:
-                #if a user exists in the User table but doesn't have an ExternalReason created, do not allow
+            #NOTE: may need changing if there are ExternalReason names I haven't accounted for
+            
+            #NOTE: new reasons. A user might be the target of multiple reason objects
+            #so I'm adding all of them
+            user_reasons = []
+            cursor = Reason.objects._collection.find({'target': dataset + '/contributor/' + user})
+            while(true):
+                try:
+                    user_reasons.append(cursor.next())                        
+                except StopIteration:
+                    break;
+            if(len(user_reasons) == 0):
+                #if a user exists in the user table but doesn't have any Reasons, don't allow
                 return rc.FORBIDDEN
         else:
             #incorrect password
             return rc.FORBIDDEN
+        
         try:
             assertion = Assertion.objects.get(
                 dataset = dataset,
@@ -259,8 +268,7 @@ class ConceptDBHandler(BaseHandler):
                 polarity = polarity,
                 context = context)
             
-            assertion.add_support([user_reason]) 
-            #TODO: test how this works with new reasons
+            assertion.add_support(user_reasons) 
             return "The assertion you created already exists.  Your vote for this \
             assertion has been counted.\n" + str(assertion.serialize())
 
@@ -271,7 +279,7 @@ class ConceptDBHandler(BaseHandler):
                         polarity = polarity,
                         context = context)
             
-            assertion.add_support([user_reason]) 
+            assertion.add_support(user_reasons) 
 
             return assertion.serialize()
 
@@ -329,28 +337,33 @@ class ConceptDBHandler(BaseHandler):
 
             #the user's password is correct.  Get their reason and add
             #NOTE: may need changing if there are ExternalReason names I haven't accounted for
-            try:
-                #FIXME: new reasons.  How are user's reasons handled now?
-                user_reason = ExternalReason.get(dataset + '/contributor/' + user)
-            except DoesNotExist:
-                #if a user exists in the user table but doesn't have an ExternalReason, don't allow
+            
+            #NOTE: new reasons. A user might be the target of multiple reason objects
+            #so I'm adding all of them
+            user_reasons = []
+            cursor = Reason.objects._collection.find({'target': dataset + '/contributor/' + user})
+            while(true):
+                try:
+                    user_reasons.append(cursor.next())                        
+                except StopIteration:
+                    break;
+            if(len(user_reasons) == 0):
+                #if a user exists in the user table but doesn't have any Reasons, don't allow
                 return rc.FORBIDDEN
         else:
             #incorrect password
             return rc.FORBIDDEN
          
         vote = request.POST['vote']
-        #FIXME: new reasons
         if vote == "1": #vote in favor
-            assertion.add_support([user_reason]) 
+            assertion.add_support(user_reasons) 
         elif vote == "-1": #vote against
-            assertion.add_oppose([user_reason])
+            assertion.add_oppose(user_reasons)
         else: #invalid vote
             return rc.BAD_REQUEST
 
         return assertion.serialize()
 
-#TODO: Expression and Justification lookups?
 
     def expressionLookup(self, obj_url):
         try:
