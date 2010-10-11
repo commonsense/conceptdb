@@ -1,8 +1,9 @@
 from piston.handler import BaseHandler
 from piston.utils import throttle, rc
 from piston.authentication import HttpBasicAuthentication
-from conceptdb.assertion import Assertion, Sentence
-from conceptdb.metadata import Dataset, ExternalReason
+from conceptdb.assertion import Assertion, Sentence, Expression
+from conceptdb.metadata import Dataset
+from conceptdb.justify import Reason
 import conceptdb
 from mongoengine.queryset import DoesNotExist
 from mongoengine.base import ValidationError
@@ -336,7 +337,6 @@ class ConceptDBHandler(BaseHandler):
         if User.objects.get(username=user).check_password(password):
 
             #the user's password is correct.  Get their reason and add
-            #NOTE: may need changing if there are ExternalReason names I haven't accounted for
             
             #NOTE: new reasons. A user might be the target of multiple reason objects
             #so I'm adding all of them

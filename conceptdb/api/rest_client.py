@@ -22,7 +22,7 @@ def lookup_assertion(assertion_id):
     return _get_json('assertion', assertion_id)
 
 def _get_json(*url_parts):
-    url = API_URL + '/'.join(urllib2.quote(str(p)) for p in url_parts) + '/query.json'
+    url = API_URL + '/'.join(urllib2.quote(str(p)) for p in url_parts) + '?format=json'
     return json.loads(_get_url(url))
 
 
