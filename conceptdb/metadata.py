@@ -16,7 +16,6 @@ class Dataset(ConceptDBDocument, mon.Document):
     
     @staticmethod
     def make(name, language):
-        #why is the language a dictionary now? - EH 7/23
         d = Dataset.objects.get_or_create(name=name,
               defaults=dict(language=language))
         return d
