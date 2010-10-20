@@ -26,18 +26,18 @@ def lookup_dataset(dataset_name):
     return _get_json(dataset_name)
 
 #FIXME: figure out why this is returning 500
-def find_assertion(dataset, relation, concepts, polarity = '1.0', context = 'None'):
-    dataset = dataset.replace('/', '%2F')
-    concepts = concepts.replace('/', '%2F')
-    relation = relation.replace('/', '%2F')
-    url_append = 'assertionfind?dataset=' + dataset + '&rel=' + relation + '&concepts=' + concepts + '&polarity=' + polarity + '&context=' + context
-    return _get_json(url_append)
+def find_assertion(dataset, relation, concepts, polarity = '1', context = 'None'):
+    url_append = 'assertionfind?dataset=' + dataset + '&rel=' + relation + '&concepts=' + concepts + '&polarity=' + str(polarity) + '&context=' + context
+    return _get_json_with_queries(url_append)
 
 def _get_json(*url_parts):
     url = API_URL + '/'.join(urllib2.quote(str(p)) for p in url_parts) + '?format=json'
-    print("url = " + str(url))
     return json.loads(_get_url(url))
 
+
+def _get_json_with_queries(*url_parts):
+    url = API_URL + '/'.join(p for p in url_parts) + '&format=json'
+    return json.loads(_get_url(url))
 
 def _get_url(url):
     conn = urllib2.urlopen(url)

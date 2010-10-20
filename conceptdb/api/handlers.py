@@ -98,7 +98,7 @@ class ConceptDBHandler(BaseHandler):
         dataset = request.GET['dataset']
         relation = request.GET['rel']
         argstr = request.GET['concepts']
-        polarity = int(request.GET.get('polarity',1))
+        polarity = float(request.GET.get('polarity',1))
         context = request.GET.get('context','None')
         
         if context == 'None':
