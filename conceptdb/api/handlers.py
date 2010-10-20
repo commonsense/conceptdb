@@ -179,7 +179,7 @@ class ConceptDBHandler(BaseHandler):
         Accessed by going to URL /api/reason/{id}
         """
         try:
-            return Reason.get(obj_url.replace('/reason', '')).serialize()
+            return Reason.get(obj_url.replace('/reason/', '')).serialize()
         except DoesNotExist:
             return rc.NOT_FOUND
 

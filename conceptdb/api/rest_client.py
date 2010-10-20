@@ -25,10 +25,16 @@ def lookup_dataset(dataset_name):
     dataset_name = dataset_name[1:] #strip leading '/'
     return _get_json(dataset_name)
 
-#FIXME: figure out why this is returning 500
+def lookup_reason(reason_id):
+  return _get_json('reason', reason_id)
+
+def lookup_reason_targets(reason_id):
+  return _get_json('reasonusedfor', reason_id)
+
 def find_assertion(dataset, relation, concepts, polarity = '1', context = 'None'):
     url_append = 'assertionfind?dataset=' + dataset + '&rel=' + relation + '&concepts=' + concepts + '&polarity=' + str(polarity) + '&context=' + context
     return _get_json_with_queries(url_append)
+
 
 def _get_json(*url_parts):
     url = API_URL + '/'.join(urllib2.quote(str(p)) for p in url_parts) + '?format=json'
