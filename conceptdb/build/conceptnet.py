@@ -35,13 +35,13 @@ def import_activities(lang):
         justify(newact, [site], 1.0)
         log.info(newact)
 
-def import_assertions(lang):
+def import_assertions(lang, skip=0):
     dataset = Dataset.make(DATASET_ROOT+lang, lang)
     generalize_reason = dataset.get_reason('/rule/generalize')
     justify(generalize_reason, [dataset.get_root_reason()], 0.1)
 
     assertions = OldAssertion.objects.filter(score__gt=0, language__id=lang)\
-      .select_related('concept1', 'concept2', 'relation', 'language')
+      .select_related('concept1', 'concept2', 'relation', 'language')[skip:]
     for assertion in assertions:
         relation = RELATION_ROOT + assertion.relation.name
         concept_names = [assertion.concept1.text, assertion.concept2.text]
@@ -96,8 +96,8 @@ def import_assertions(lang):
 
 def main():
     conceptdb.connect_to_mongodb('conceptdb')
-    #import_activities('en')
-    #import_contributors('en')
+    import_activities('en')
+    import_contributors('en')
     import_assertions('en')
 
 if __name__ == '__main__':

@@ -1,5 +1,5 @@
 __import__('os').environ.setdefault('DJANGO_SETTINGS_MODULE', 'csc.django_settings')
-from conceptdb.log import Log
+from log import Log
 import mongoengine as mon
 from mongoengine.queryset import DoesNotExist, QuerySet
 from pymongo.objectid import ObjectId
@@ -23,6 +23,7 @@ def connect_to_mongodb(dbname='conceptdb',
     """
     _db = mon.connect(dbname, host=host, username=username, password=password)
     return _db
+connect = connect_to_mongodb
 
 class JSONScrubber(json.JSONEncoder):
     def _iterencode_dict(self, dct, markers=None):
