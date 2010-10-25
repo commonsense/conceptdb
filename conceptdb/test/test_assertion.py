@@ -8,10 +8,10 @@ def test_assertion():
     # fresh start
     Dataset.drop_collection()
     Assertion.drop_collection() 
-    
     #create test dataset
-    dataset = Dataset.create(language = 'en', name = '/data/test')
 
+    dataset = Dataset.create(language = 'en', name = '/data/test')
+    
     #make a test assertion
     a1 = Assertion.make('/data/test',"/rel/IsA",["/concept/test/assertion", "/concept/test/test"])
 
