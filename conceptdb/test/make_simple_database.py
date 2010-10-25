@@ -20,18 +20,18 @@ a1 = Assertion.make(d, '/rel/IsA', ['/concept/assertion', '/concept/test'])
 a2 = Assertion.make(d, '/rel/IsA', ['/concept/database', '/concept/test'])
 
 #add expressions to them
-a1.make_expression('{0} is a {1}', a1.arguments, d.language)
-a2.make_expression('{0} is a {1}', a2.arguments, d.language)
+e1 = a1.make_expression('{0} is a {1}', a1.arguments, d.language)
+e2 = a2.make_expression('{0} is a {1}', a2.arguments, d.language)
 
 #connect them to sentences
 a1.connect_to_sentence(d, 'This assertion is a test.')
 a2.connect_to_sentence(d, 'This database is a test.')
 
 #make a reason for myself
-r = Reason.make('/contributor/elhawk', ['test_factor'], 0.75, True)
+r = Reason.make('/contributor/elhawk', ['user_factor'], 0.75, True)
 
 #use the reason to vote for assertion a1
-a1.add_support(r)
+ra1 = a1.add_support(['/contributor/elhawk'])
 
 #use the reason to vote against assertion a2
-a2.add_oppose(r)
+ra2 = a2.add_oppose(['/contributor/elhawk'])

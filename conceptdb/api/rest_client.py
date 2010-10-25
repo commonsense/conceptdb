@@ -28,14 +28,19 @@ def lookup_dataset(dataset_name):
 def lookup_reason(reason_id):
   return _get_json('reason', reason_id)
 
-def lookup_reason_targets(reason_id):
-  return _get_json('reasonusedfor', reason_id)
+def lookup_factor_targets(factor_name):
+  return _get_json('factorusedfor', factor_name[1:]) #strip leading '/' from factor_name
 
-def find_assertion(dataset, relation, concepts, polarity = '1', context = 'None'):
+def find_assertion(dataset, relation, concepts, polarity = 1, context = 'None'):
     url_append = 'assertionfind?dataset=' + dataset + '&rel=' + relation + '&concepts=' + concepts + '&polarity=' + str(polarity) + '&context=' + context
     return _get_json_with_queries(url_append)
 
+def lookup_concept(concept_name, start = 0, limit = 10):
+    return _get_json_with_queries('conceptfind' + concept_name + '?start=' + str(start) + '&limit=' + str(limit))
 
+def lookup_expression(expression_id):
+    return _get_json('expression', expression_id)
+    
 def _get_json(*url_parts):
     url = API_URL + '/'.join(urllib2.quote(str(p)) for p in url_parts) + '?format=json'
     return json.loads(_get_url(url))

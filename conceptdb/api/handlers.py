@@ -4,6 +4,7 @@ from piston.authentication import HttpBasicAuthentication
 from conceptdb.assertion import Assertion, Sentence, Expression
 from conceptdb.metadata import Dataset
 from conceptdb.justify import Reason
+from conceptdb import ConceptDBDocument
 import conceptdb
 from mongoengine.queryset import DoesNotExist
 from mongoengine.base import ValidationError
@@ -33,18 +34,20 @@ class ConceptDBHandler(BaseHandler):
         elif obj_url.startswith('/assertionfind'):
             #find assertion by identifying factors (dataset, concepts, relation, polarity, context)
             return self.assertionFind(request, obj_url)
-        elif obj_url.startswith('/reasonusedfor'):
+        elif obj_url.startswith('/factorusedfor'):
             #returns all of the things that a reason has been used to justify
-            return self.reasonUsedFor(obj_url)
+            return self.factorUsedFor(obj_url)
         elif obj_url.startswith('/reason'):
             #looks up a reason by its name
             return self.reasonLookup(obj_url)
-        elif obj_url.startswith('/concept'):
+        elif obj_url.startswith('/conceptfind'):
             #returns assertions that a concept has appeared in (as a concept, not relation or context)
             #defaults to returning top 10 by justification but can be modified
             return self.conceptLookup(request, obj_url)
         elif obj_url.startswith('/expression'):
             return self.expressionLookup(obj_url)
+        elif obj_url.startswith('/expressionAssertions'):
+            return self.expressionAssertionLookup(obj_url)
         #if none of the above, return bad request.  
         return rc.BAD_REQUEST
 
@@ -115,7 +118,7 @@ class ConceptDBHandler(BaseHandler):
             return rc.NOT_FOUND
 
 
-    def reasonUsedFor(self, obj_url):
+    def factorUsedFor(self, obj_url):
         """Given a factor in a Reason object, returns all of the things
         that the reason has been used to justify. Currently returns a list of the things
         that use it in form {assertions: [list of assertions], sentence: [list of sentences],
@@ -123,21 +126,21 @@ class ConceptDBHandler(BaseHandler):
         justify things that are not in the database (for instance Users), it will
         inform you but not return the other items.  I might change this later.  
         
-        URL must take the form /api/reasonusedfor/{reason id}"""
+        URL must take the form /api/factorusedfor/{reason id}"""
 
         #must look for the reason being used in Assertion, Sentence, and Expression
         #TODO: should there be a limit on the number of things returned,  maybe also
         #sorted by confidence scores?  
         
-        reasonName = obj_url.replace('/reasonusedfor', '')
+        factorName = obj_url.replace('/factorusedfor', '')
         assertions = [] #list of assertion id's with obj_url as justification
         expressions = [] #list of expressions with obj_url as justification
         sentences = [] #list of sentences with obj_url as justification
         other = False #
-        cursor = Reason.objects._collection.find({'factors':reasonName})
+        cursor = Reason.objects._collection.find({'factors':factorName})
         while(True):
             try:
-                next_item = cursor.next().target
+                next_item = cursor.next()['target']
                 
                 #if target was the document itself, change to document name
                 if isinstance(next_item, ConceptDBDocument):
@@ -199,10 +202,11 @@ class ConceptDBHandler(BaseHandler):
 
         start = int(request.GET.get('start', '0'))
         limit = int(request.GET.get('limit', '10'))
-        conceptName = obj_url.replace('/concept/', '')
+        conceptName = obj_url.replace('/conceptfind', '')
         #NOTE: should return ranked by confidence score.  For now assume that they do.
         cursor = Assertion.objects._collection.find({'arguments':conceptName})[start:start + limit]
         assertions = []
+
 
         while (True):
             try:
@@ -367,14 +371,14 @@ class ConceptDBHandler(BaseHandler):
 
     def expressionLookup(self, obj_url):
         try:
-            return Expression.objects.get(obj_url.replace('/expression/', ''))
+            return Expression.get(obj_url.replace('/expression/', ''))
         except DoesNotExist:
             return rc.NOT_FOUND
 
 # expression lookup where given an assertion, while return given number of 
 #expressions that match the assertion -- similar to how concept lookup works now?
 
-    def assertionExpressionLookup(self, request, obj_url):
+    def expressionAssertionLookup(self, request, obj_url):
         assertionID = request.GET['id']
         start = int(request.GET.get('start', '0'))
         limit = int(request.GET.get('limit', '10'))
