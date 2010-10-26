@@ -1,16 +1,18 @@
 from scipy import sparse
 from scipy.sparse.linalg.dsolve import linsolve
+from csc import divisi2
 from csc.divisi2.ordered_set import OrderedSet
 import numpy as np
 import networkx as nx
+import codecs
 
-def make_diag(d):
-    return sparse.dia_matrix(([d], [0]), shape=(len(d), len(d)))
+def make_diag(array):
+    return sparse.dia_matrix(([array], [0]), shape=(len(array), len(array)))
 
 GND = '~ground~'
 
 class BeliefNetwork(object):
-    def __init__(self, ground_weight=1.0):
+    def __init__(self, ground_weight=1.0, output=None):
         self.graph = nx.Graph()
         self.conjunctions = set()
         self.ground_weight = ground_weight
@@ -20,13 +22,22 @@ class BeliefNetwork(object):
         self._edge_matrix = None
         self._conductance = None
 
-    def add_edge(self, source, dest, weight):
-        self.graph.add_edge(source, dest, weight=weight)
+        self.output = output
+
+    def add_edge(self, source, dest, weight, dependencies=None):
+        props = {'weight': weight}
+        if dependencies is not None:
+            props['dependencies'] = dependencies
+        self.graph.add_edge(source, dest, **props)
+        if self.output:
+            self.output.write("%s\t%s\t%r\n" % (source, dest, props))
 
     def add_conjunction(self, sources, dest, weight):
+        sources = tuple(sources)
         self.conjunctions.add((sources, dest, weight))
-        for source in sources:
-            self.add_edge(source, dest, weight)
+        for i, source in enumerate(sources):
+            self.add_edge(source, dest, weight,
+                          dependencies=sources)
 
     def ordered_nodes(self):
         nodes = self.graph.nodes()
@@ -76,15 +87,18 @@ class BeliefNetwork(object):
         for sources, dest, weight in self.conjunctions:
             selected_potentials = {}
             for source in sources:
-                selected_potentials[source] = potentials[self.nodes.index(source)]
-            product = np.product(selected_potentials.values())
+                selected_potentials[source] = \
+                    potentials[self.nodes.index(source)]
+            product = np.product(np.maximum(0, selected_potentials.values()))
             for source in sources:
-                multipliers[self.edges.index((source, dest))] = product/selected_potentials[source]
+                multipliers[self.edges.index((source, dest))] = \
+                    product/selected_potentials[source]
         return multipliers
 
     def get_system_matrix(self, potentials):
         A = self.get_edge_matrix()
-        G = self.get_conductance_multipliers(potentials) * self.get_conductance()
+        G = self.get_conductance_multipliers(potentials)\
+          * self.get_conductance()
         return A.T * make_diag(G) * A
 
     def solve_system(self, potentials, current):
@@ -111,7 +125,20 @@ class BeliefNetwork(object):
         if not converged: print "Warning: failed to converge"
         return zip(self.nodes, potentials)
 
-if __name__ == '__main__':
+def graph_from_conceptnet(output=None):
+    import conceptdb
+    from conceptdb.justify import Reason
+    conceptdb.connect('conceptdb')
+
+    bn = BeliefNetwork(output=output)
+    for reason in Reason.objects:
+        reason_name = '/conjunction/%s' % reason.id
+        print len(bn.graph), reason_name
+        bn.add_conjunction(reason.factors, reason_name, reason.weight)
+        bn.add_edge(reason_name, reason.target, 1.0)
+    return bn
+
+def demo():
     bn = BeliefNetwork()
     bn.add_edge('root', 'A', 1.0)
     bn.add_edge('root', 'B', 3.0)
@@ -120,8 +147,18 @@ if __name__ == '__main__':
     bn.add_conjunction(('A', 'B'), 'D', 1.0)
     bn.add_edge('A', 'E', 1.0)
     bn.add_edge('B', 'E', 1.0)
+    bn.add_conjunction(('C', 'D'), 'F', 1.0)
     bn.finalize()
 
     results = bn.run('root')
-    print list(bn.nodes)
+    print results
+
+def run_conceptnet(filename='conceptdb.graph'):
+    out = codecs.open(filename, 'w', encoding='utf-8')
+    bn = graph_from_conceptnet(out)
+    out.close()
+    return bn
+
+if __name__ == '__main__':
+    belief_net = run_conceptnet()
 
