@@ -48,8 +48,8 @@ class BeliefNetwork(object):
     def finalize(self):
         for node in self.graph.nodes():
             self.graph.add_edge(node, GND, weight=self.ground_weight)
-            self.nodes = OrderedSet(self.ordered_nodes())
-            self.edges = OrderedSet(sorted(self.graph.edges()))
+        self.nodes = OrderedSet(self.ordered_nodes())
+        self.edges = OrderedSet(sorted(self.graph.edges()))
 
     def update_arrays(self):
         mat = sparse.dok_matrix((len(self.edges), len(self.nodes)))
@@ -106,7 +106,7 @@ class BeliefNetwork(object):
         new_potentials = linsolve.spsolve(system, current)
         return new_potentials
 
-    def run(self, root, epsilon=1e-6):
+    def run_analog(self, root, epsilon=1e-6):
         potentials = np.ones((len(self.nodes),))
         converged = False
         root_index = self.nodes.index(root)
@@ -132,11 +132,32 @@ def graph_from_conceptnet(output=None):
 
     bn = BeliefNetwork(output=output)
     for reason in Reason.objects:
-        reason_name = '/conjunction/%s' % reason.id
+        reason_name = '/c/%s' % reason.id
+        if reason.target == '/sentence/None': continue
         print len(bn.graph), reason_name
         bn.add_conjunction(reason.factors, reason_name, reason.weight)
         bn.add_edge(reason_name, reason.target, 1.0)
     return bn
+
+def graph_from_file(filename):
+    bn = BeliefNetwork(output=None)
+    found_conjunctions = set()
+    with open(filename) as file:
+        for line in file:
+            line = line.strip()
+            if line:
+                source, target, prop_str = line.split('\t')
+                props = eval(prop_str)
+                weight = props['weight']
+                dependencies = None
+                if 'dependencies' in props:
+                    dependencies = props['dependencies']
+                    if target not in conjunctions:
+                        found_conjunctions.add(target)
+                        bn.conjunctions.append((dependencies, target, weight))
+                bn.add_edge(source, target, weight, dependencies)
+    return bn
+
 
 def demo():
     bn = BeliefNetwork()
@@ -150,7 +171,7 @@ def demo():
     bn.add_conjunction(('C', 'D'), 'F', 1.0)
     bn.finalize()
 
-    results = bn.run('root')
+    results = bn.run_analog('root')
     print results
 
 def run_conceptnet(filename='conceptdb.graph'):
@@ -160,5 +181,5 @@ def run_conceptnet(filename='conceptdb.graph'):
     return bn
 
 if __name__ == '__main__':
-    belief_net = run_conceptnet()
+    belief_net = demo()
 
