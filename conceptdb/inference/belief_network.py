@@ -168,9 +168,9 @@ def graph_from_file(filename):
                 dependencies = None
                 if 'dependencies' in props:
                     dependencies = props['dependencies']
-                    if target not in conjunctions:
+                    if target not in found_conjunctions:
                         found_conjunctions.add(target)
-                        bn.conjunctions.append((dependencies, target, weight))
+                        bn.conjunctions.add((dependencies, target, weight))
                 bn.add_edge(source, target, weight, dependencies)
     return bn
 
