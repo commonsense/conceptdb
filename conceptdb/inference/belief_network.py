@@ -1,5 +1,5 @@
 from scipy import sparse
-from scipy.sparse.linalg.dsolve import linsolve
+from scipy.sparse import linalg as sparse_linalg
 from csc import divisi2
 from csc.divisi2.ordered_set import OrderedSet
 import numpy as np
@@ -9,7 +9,14 @@ import codecs
 def make_diag(array):
     return sparse.dia_matrix(([array], [0]), shape=(len(array), len(array)))
 
-GND = '~ground~'
+def make_product_operator(*matrices):
+    shape = (matrices[0].shape[0], matrices[-1].shape[-1])
+
+    def matvec(vec):
+        for mat in matrices[::-1]:
+            vec = mat * vec
+        return vec
+    return sparse_linalg.LinearOperator(shape, matvec, dtype=matrices[0].dtype)
 
 class BeliefNetwork(object):
     def __init__(self, ground_weight=1.0, output=None):
@@ -40,32 +47,34 @@ class BeliefNetwork(object):
                           dependencies=sources)
 
     def ordered_nodes(self):
-        nodes = self.graph.nodes()
-        nodes.remove(GND)
-        nodes.sort()
-        return nodes
+        return sorted(self.graph.nodes())
 
     def finalize(self):
-        for node in self.graph.nodes():
-            self.graph.add_edge(node, GND, weight=self.ground_weight)
         self.nodes = OrderedSet(self.ordered_nodes())
         self.edges = OrderedSet(sorted(self.graph.edges()))
 
     def update_arrays(self):
-        mat = sparse.dok_matrix((len(self.edges), len(self.nodes)))
-        vec = np.zeros((len(self.edges),))
+        n_edges = len(self.edges) + len(self.nodes)
+        offset = len(self.edges)
+        mat = sparse.dok_matrix((n_edges, len(self.nodes)))
+        vec = np.zeros((n_edges,))
         for source, dest in self.graph.edges():
             edge_num = self.edges.index((source, dest))
-            if source == GND:
-                source, dest = dest, source
             weight = self.graph.get_edge_data(source, dest)['weight']
             source_idx = self.nodes.index(source)
             mat[edge_num, source_idx] = -1.0
-            if dest != GND:
-                dest_idx = self.nodes.index(dest)
-                mat[edge_num, dest_idx] = 1.0
+            dest_idx = self.nodes.index(dest)
+            mat[edge_num, dest_idx] = 1.0
             vec[edge_num] = weight
-        self._edge_matrix = mat
+
+        # Add edges to ground
+        for node in self.graph.nodes():
+            node_num = self.nodes.index(node)
+            adjusted_node_num = node_num + offset
+            mat[adjusted_node_num, node_num] = -1.0
+            vec[adjusted_node_num] = self.ground_weight
+        self._edge_matrix = mat.tocsr()
+        self._edge_matrix_transpose = mat.T.tocsr()
         self._conductance = vec
         return mat, vec
 
@@ -75,6 +84,12 @@ class BeliefNetwork(object):
             self.update_arrays()
         return self._edge_matrix
 
+    def get_edge_matrix_transpose(self):
+        if self.nodes is None: self.finalize()
+        if self._edge_matrix is None:
+            self.update_arrays()
+        return self._edge_matrix_transpose
+    
     def get_conductance(self):
         if self.nodes is None: self.finalize()
         if self._conductance is None:
@@ -93,17 +108,18 @@ class BeliefNetwork(object):
             for source in sources:
                 multipliers[self.edges.index((source, dest))] = \
                     product/selected_potentials[source]
-        return multipliers
+        return np.concatenate([multipliers, np.ones((len(potentials),))])
 
     def get_system_matrix(self, potentials):
+        A_T = self.get_edge_matrix_transpose()
         A = self.get_edge_matrix()
         G = self.get_conductance_multipliers(potentials)\
           * self.get_conductance()
-        return A.T * make_diag(G) * A
+        return make_product_operator(A_T, make_diag(G), A)
 
     def solve_system(self, potentials, current):
         system = self.get_system_matrix(potentials)
-        new_potentials = linsolve.spsolve(system, current)
+        new_potentials = sparse_linalg.cg(system, current)[0]
         return new_potentials
 
     def run_analog(self, root, epsilon=1e-6):
