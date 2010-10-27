@@ -46,8 +46,8 @@ class ConceptDBHandler(BaseHandler):
             return self.conceptLookup(request, obj_url)
         elif obj_url.startswith('/expression'):
             return self.expressionLookup(obj_url)
-        elif obj_url.startswith('/expressionAssertions'):
-            return self.expressionAssertionLookup(obj_url)
+        elif obj_url.startswith('/assertionexpressions'):
+            return self.assertionExpressionLookup(request, obj_url)
         #if none of the above, return bad request.  
         return rc.BAD_REQUEST
 
@@ -377,19 +377,21 @@ class ConceptDBHandler(BaseHandler):
 
 # expression lookup where given an assertion, while return given number of 
 #expressions that match the assertion -- similar to how concept lookup works now?
-
-    def expressionAssertionLookup(self, request, obj_url):
+    def assertionExpressionLookup(self, request, obj_url):
         assertionID = request.GET['id']
         start = int(request.GET.get('start', '0'))
         limit = int(request.GET.get('limit', '10'))
 
         #NOTE: should return ranked by confidence score.  For now assume that they do.
-        cursor = Expression.objects._collection.find({'assertion.id':assertionID})[start:start + limit]
+        try:
+            assertion = Assertion.get(assertionID)
+        except DoesNotExist:
+            return rc.NOT_FOUND
+        cursor = Expression.objects(assertion = assertion)[start:start + limit]
         expressions = []
-
         while (True):
             try:
-                expressions.append(str(cursor.next()['_id']))
+                expressions.append(str(cursor.next().id))
             except StopIteration:
                 break #no more assertions within the skip/limit boundaries
 

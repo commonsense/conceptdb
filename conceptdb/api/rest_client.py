@@ -40,7 +40,10 @@ def lookup_concept(concept_name, start = 0, limit = 10):
 
 def lookup_expression(expression_id):
     return _get_json('expression', expression_id)
-    
+
+def lookup_assertion_expressions(assertion_id, start = 0, limit = 10):
+    return _get_json_with_queries('assertionexpressions?id=' + str(assertion_id) + '&start=' + str(start) + '&limit=' + str(limit))
+
 def _get_json(*url_parts):
     url = API_URL + '/'.join(urllib2.quote(str(p)) for p in url_parts) + '?format=json'
     return json.loads(_get_url(url))
@@ -48,6 +51,7 @@ def _get_json(*url_parts):
 
 def _get_json_with_queries(*url_parts):
     url = API_URL + '/'.join(p for p in url_parts) + '&format=json'
+    print url
     return json.loads(_get_url(url))
 
 def _get_url(url):
