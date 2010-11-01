@@ -53,10 +53,6 @@ class BeliefNetwork(object):
     def ordered_nodes(self):
         return sorted(self.graph.nodes())
 
-    def finalize(self):
-        self.nodes = OrderedSet(self.ordered_nodes())
-        self.edges = OrderedSet(sorted(self.graph.edges()))
-
     def update_arrays(self):
         n_edges = len(self.edges) + len(self.nodes)
         offset = len(self.edges)
@@ -83,19 +79,16 @@ class BeliefNetwork(object):
         return mat, vec
 
     def get_edge_matrix(self):
-        if self.nodes is None: self.finalize()
         if self._edge_matrix is None:
             self.update_arrays()
         return self._edge_matrix
 
     def get_edge_matrix_transpose(self):
-        if self.nodes is None: self.finalize()
         if self._edge_matrix is None:
             self.update_arrays()
         return self._edge_matrix_transpose
     
     def get_conductance(self):
-        if self.nodes is None: self.finalize()
         if self._conductance is None:
             self.update_arrays()
         return self._conductance
@@ -178,7 +171,6 @@ def graph_from_file(filename):
                 bn.add_edge(source, target, weight, dependencies)
     return bn
 
-
 def demo():
     bn = BeliefNetwork()
     bn.add_edge('root', 'A', 1.0)
@@ -189,7 +181,6 @@ def demo():
     bn.add_edge('A', 'E', 1.0)
     bn.add_edge('B', 'E', 1.0)
     bn.add_conjunction(('C', 'D'), 'F', 1.0)
-    bn.finalize()
 
     results = bn.run_analog('root')
     print results
