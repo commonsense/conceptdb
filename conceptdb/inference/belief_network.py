@@ -24,14 +24,18 @@ class BeliefNetwork(object):
         self.conjunctions = set()
         self.ground_weight = ground_weight
 
-        self.nodes = None
-        self.edges = None
+        self.nodes = OrderedSet()
+        self.edges = OrderedSet()
         self._edge_matrix = None
         self._conductance = None
 
         self.output = output
 
     def add_edge(self, source, dest, weight, dependencies=None):
+        self.nodes.add(source)
+        self.nodes.add(dest)
+        self.edges.add((source, dest))
+
         props = {'weight': weight}
         if dependencies is not None:
             props['dependencies'] = dependencies
@@ -189,6 +193,7 @@ def demo():
 
     results = bn.run_analog('root')
     print results
+    return bn
 
 def run_conceptnet(filename='conceptdb.graph'):
     out = codecs.open(filename, 'w', encoding='utf-8')
