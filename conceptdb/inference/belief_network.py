@@ -90,9 +90,9 @@ class BeliefNetwork(object):
                     edge_num = self.edges.index((dest, source))
                 edge_indices.append(edge_num)
                 node_indices.append(self.nodes.index(source))
-            for node_index in node_indices:
-                unconnected_edges = [e for e in edge_indices if mat[e, node_index] == 0.0]
-                conjunction_mat[unconnected_edges, node_index] = 1
+            conjunction_mat[edge_indices, node_indices] = 1
+            #for node_index in node_indices:
+            #    unconnected_edges = [e for e in edge_indices if mat[e, node_index] == 0.0]
 
         self._edge_matrix = mat.tocsr()
         self._edge_matrix_transpose = mat.T.tocsr()
@@ -151,11 +151,8 @@ class BeliefNetwork(object):
         currents = -A * new_potentials
         offset = len(self.edges)
 
-        # "node currents" = the amount of current flowing through each node.
-        # I hope this is well-defined.
-        node_currents = np.maximum(0, currents) * np.abs(A)
         potential_differences = new_potentials[current_source] - new_potentials
-        conductance = node_currents/potential_differences
+        conductance = 1.0/potential_differences
         return conductance
 
     def run_analog(self, root, epsilon=1e-6):
