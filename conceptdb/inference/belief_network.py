@@ -14,7 +14,7 @@ def make_product_operator(*matrices):
 
     def matvec(vec):
         for mat in matrices[::-1]:
-            vec = mat * vec
+            vec = mat.dot(vec)
         return vec
     return sparse_linalg.LinearOperator(shape, matvec, dtype=matrices[0].dtype)
 
@@ -100,6 +100,14 @@ class BeliefNetwork(object):
         self._conjunction_matrix = conjunction_mat.tocsr()
         return mat, vec
 
+    def make_node_matrix(self):
+        self._node_matrix = nx.to_scipy_sparse_matrix(self.graph, self.nodes)
+
+    def get_node_matrix(self):
+        if self._node_matrix is None:
+            self.make_node_matrix()
+        return self._node_matrix
+
     def get_edge_matrix(self):
         if self._edge_matrix is None:
             self.update_arrays()
@@ -118,13 +126,12 @@ class BeliefNetwork(object):
     def adjusted_conductances(self, equiv_conductances):
         assert len(equiv_conductances) == len(self.nodes)
         
-        equiv_resistances = 1.0/equiv_conductances
+        equiv_resistances = 1.0/np.maximum(0, equiv_conductances)
         edge_resistances = 1.0/self._edge_conductance
-        combined_resistances = self._conjunction_matrix * equiv_resistances
+        combined_resistances = self._conjunction_matrix.dot(equiv_resistances)
         new_resistances = (edge_resistances + combined_resistances)
         adjusted_conductances = 1.0/new_resistances
-        for i in xrange(len(self.edges)):
-            print self.edges[i], self._edge_conductance[i], adjusted_conductances[i]
+        print adjusted_conductances
         return adjusted_conductances
 
     def get_system_matrix(self, conductances):
@@ -148,10 +155,10 @@ class BeliefNetwork(object):
         new_potentials = sparse_linalg.cg(system, current)[0]
         
         # A = edges by nodes
-        currents = -A * new_potentials
-        offset = len(self.edges)
+        currents = -A.dot(new_potentials)
 
         potential_differences = new_potentials[current_source] - new_potentials
+        current_magnitude = np.abs(self.get_edge_matrix_transpose()).dot(currents)
         conductance = 1.0/potential_differences
         return conductance
 
@@ -207,7 +214,7 @@ def graph_from_file(filename):
     return bn
 
 def demo():
-    bn = BeliefNetwork()
+    bn = BeliefNetwork(ground_weight=10.0)
     bn.add_edge('root', 'A', 1.0)
     bn.add_edge('root', 'B', 3.0)
     bn.add_edge('A', 'C', -1.0)
@@ -215,7 +222,8 @@ def demo():
     bn.add_conjunction(('A', 'B'), 'D', 1.0)
     bn.add_edge('A', 'E', 1.0)
     bn.add_edge('B', 'E', 1.0)
-    bn.add_conjunction(('C', 'D'), 'F', 1.0)
+    bn.add_conjunction(('C', 'G'), 'F', 1.0)
+    bn.add_edge('B', 'G', -1.0)
 
     results = bn.run_analog('root')
     print results
