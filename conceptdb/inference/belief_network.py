@@ -28,6 +28,8 @@ class BeliefNetwork(object):
         self.edges = OrderedSet()
         self._edge_matrix = None
         self._conjunction_matrix = None
+        self._node_matrix = None
+        self._node_conjunctions = None
         self._edge_conductance = None
 
         self.output = output
@@ -101,12 +103,40 @@ class BeliefNetwork(object):
         return mat, vec
 
     def make_node_matrix(self):
+        n_nodes = len(self.nodes)
         self._node_matrix = nx.to_scipy_sparse_matrix(self.graph, self.nodes)
+
+    def make_node_conjunctions(self):
+        n_nodes = len(self.nodes)
+        node_conjunctions = sparse.dok_matrix((n_nodes, n_nodes))
+        for sources, dest, weight in self.conjunctions:
+            node_indices = [self.nodes.index(source) for source in sources]
+            node_conjunctions[self.nodes.index(dest), node_indices] = 1.0
+        self._node_conjunctions = node_conjunctions.tocsr()
 
     def get_node_matrix(self):
         if self._node_matrix is None:
             self.make_node_matrix()
         return self._node_matrix
+
+    def get_node_conjunctions(self):
+        if self._node_conjunctions is None:
+            self.make_node_conjunctions()
+        return self._node_conjunctions
+
+    def spreading_activation(self, vec):
+        cmat = self.get_node_conjunctions()
+        nmat = self.get_node_matrix()
+
+        for iter in xrange(100):
+            conj_sums = cmat * vec
+            conj_par = 1.0/(cmat * (1.0 / np.maximum(0, vec)))
+            conj_factor = np.minimum(1.0, conj_par / conj_sums)
+            newvec = nmat.dot(vec) * conj_factor + vec
+            newvec /= np.max(np.abs(newvec))
+            print newvec
+            vec = newvec
+        return vec
 
     def get_edge_matrix(self):
         if self._edge_matrix is None:
@@ -225,7 +255,7 @@ def demo():
     bn.add_conjunction(('C', 'G'), 'F', 1.0)
     bn.add_edge('B', 'G', -1.0)
 
-    results = bn.run_analog('root')
+    results = bn.spreading_activation(np.ones((len(bn.nodes),)))
     print results
     return bn
 
