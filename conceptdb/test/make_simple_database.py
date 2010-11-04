@@ -28,10 +28,10 @@ a1.connect_to_sentence(d, 'This assertion is a test.')
 a2.connect_to_sentence(d, 'This database is a test.')
 
 #make a reason for myself
-r = Reason.make('/contributor/elhawk', ['user_factor'], 0.75, True)
+r = Reason.make('/data/test/contributor/elhawk', ['user_factor'], 0.75, True)
 
 #use the reason to vote for assertion a1
-ra1 = a1.add_support(['/contributor/elhawk'])
+ra1 = a1.add_support(['/data/test/contributor/elhawk'])
 
 #use the reason to vote against assertion a2
-ra2 = a2.add_oppose(['/contributor/elhawk'])
+ra2 = a2.add_oppose(['/data/test/contributor/elhawk'])

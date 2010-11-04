@@ -5,6 +5,7 @@ Based on rest client for conceptnet 4
 
 """
 
+import urllib
 import urllib2
 
 try:
@@ -44,16 +45,33 @@ def lookup_expression(expression_id):
 def lookup_assertion_expressions(assertion_id, start = 0, limit = 10):
     return _get_json_with_queries('assertionexpressions?id=' + str(assertion_id) + '&start=' + str(start) + '&limit=' + str(limit))
 
+def add_assertion(user, password, dataset, relation, concepts, polarity=1, context='None'):
+    return _get_post_json('assertionmake', [('user', user), ('password', password), ('dataset', dataset), ('rel', relation), ('concepts', concepts), ('polarity', str(polarity)), ('context', context)])
+
+def vote_by_id(user, password, assertion_id, vote = '1'):
+    return _get_post_json('assertionidvote', [('user', user), ('password', password), ('id', assertion_id), ('vote', vote)])
+
+def vote_by_lookup(user, password, dataset, relation, concepts, polarity=1, context='None', vote = '1'):
+    return _get_post_json('assertionvote', [('user', user), ('password', password), ('dataset', dataset), ('rel', relation), ('concepts', concepts), ('polarity', str(polarity)), ('context', context), ('vote', vote)])
+
 def _get_json(*url_parts):
     url = API_URL + '/'.join(urllib2.quote(str(p)) for p in url_parts) + '?format=json'
     return json.loads(_get_url(url))
 
+def _get_post_json(url, data):
+    return json.loads(_post_url(API_URL + url, data))
 
 def _get_json_with_queries(*url_parts):
     url = API_URL + '/'.join(p for p in url_parts) + '&format=json'
-    print url
     return json.loads(_get_url(url))
 
 def _get_url(url):
     conn = urllib2.urlopen(url)
+    return conn.read()
+
+def _post_url(url, data):
+    print "post url called"
+    data = urllib.urlencode(data)
+    print data
+    conn = urllib2.urlopen(url, data)
     return conn.read()
