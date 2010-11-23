@@ -124,7 +124,9 @@ class BeliefNetwork(object):
             self.make_node_conjunctions()
         return self._node_conjunctions
 
-    def spreading_activation(self, vec):
+    def spreading_activation(self, vec=None, root=None):
+        if vec is None:
+            vec = np.ones((len(self.nodes),))
         cmat = self.get_node_conjunctions()
         nmat = self.get_node_matrix()
 
@@ -133,7 +135,9 @@ class BeliefNetwork(object):
             conj_par = 1.0/(cmat * (1.0 / np.maximum(0, vec)))
             conj_factor = np.minimum(1.0, conj_par / conj_sums)
             newvec = nmat.dot(vec) * conj_factor + vec
-            newvec /= np.max(np.abs(newvec))
+            if root is not None and newvec[self.nodes.index(root)] < 0.0:
+                newvec = -newvec
+            newvec /= np.max(newvec)
             print newvec
             vec = newvec
         return vec
@@ -255,7 +259,7 @@ def demo():
     bn.add_conjunction(('C', 'G'), 'F', 1.0)
     bn.add_edge('B', 'G', -1.0)
 
-    results = bn.spreading_activation(np.ones((len(bn.nodes),)))
+    results = bn.spreading_activation(np.ones((len(bn.nodes),)), root='root')
     print results
     return bn
 

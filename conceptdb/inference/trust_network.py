@@ -6,6 +6,9 @@ import codecs
 
 EPS = 1e-6
 
+def make_diag(array):
+    return sparse.dia_matrix(([array], [0]), shape=(len(array), len(array)))
+
 class TrustNetwork(object):
     def __init__(self, output=None):
         self.nodes = OrderedSet()
@@ -38,7 +41,7 @@ class TrustNetwork(object):
     def add_edge(self, source, dest, weight):
         source_idx = self.nodes.index(source)
         dest_idx = self.nodes.index(dest)
-        self._node_matrix[source_idx, dest_idx] = weight
+        #self._node_matrix[source_idx, dest_idx] = weight
         self._node_matrix[dest_idx, source_idx] = weight
 
     def add_conjunction(self, sources, dest, weight):
@@ -46,18 +49,26 @@ class TrustNetwork(object):
         for i, source in enumerate(sources):
             self.add_edge(source, dest, weight)
             source_idx = self.nodes.index(source)
-            self._node_conjunctions[source_idx, dest_idx] = 1.0
+            self._node_conjunctions[dest_idx, source_idx] = 1.0
 
     def add_conjunction_piece(self, source, dest, weight):
         source_idx = self.nodes.index(source)
         dest_idx = self.nodes.index(dest)
-        self._node_matrix[source_idx, dest_idx] = weight
-        self._node_conjunctions[source_idx, dest_idx] = 1.0
+        self._node_matrix[dest_idx, source_idx] = weight
+        self._node_conjunctions[dest_idx, source_idx] = 1.0
 
     def make_fast_matrix(self):
+        #rowsums = 1.0 / (EPS + self._node_matrix.multiply(self._node_matrix).sum(axis=1))
+        #rowsums = np.sqrt(np.asarray(rowsums)[:,0])
+        #rowdiag = make_diag(rowsums)
+        #self._fast_matrix = (rowdiag * self._node_matrix).tocsr()
         self._fast_matrix = self._node_matrix.tocsr()
 
     def make_fast_conjunctions(self):
+        #rowsums = 1.0 / (EPS + self._node_conjunctions.multiply(self._node_conjunctions).sum(axis=1))
+        #rowsums = np.sqrt(np.asarray(rowsums)[:,0])
+        #rowdiag = make_diag(rowsums)
+        #self._fast_conjunctions = (rowdiag * self._node_conjunctions).tocsr()
         self._fast_conjunctions = self._node_conjunctions.tocsr()
 
     def get_matrix(self):
@@ -80,7 +91,10 @@ class TrustNetwork(object):
             conj_sums = cmat * vec
             conj_par = 1.0/(np.maximum(EPS, cmat * (1.0 / np.maximum(EPS, vec))))
             conj_factor = np.minimum(1.0, conj_par / conj_sums)
-            newvec = nmat.dot(vec) * conj_factor + vec
+            ## ignoring conjunctions for now
+            #newvec = nmat.dot(vec) * conj_factor + vec
+
+            newvec = nmat.dot(vec) + vec
             if root is not None and newvec[self.nodes.index(root)] < 0.0:
                 newvec = -newvec
             newvec /= np.max(newvec)
@@ -88,7 +102,7 @@ class TrustNetwork(object):
             vec = newvec
         return vec
 
-def graph_from_conceptnet(output=None):
+def graph_from_conceptnet(output='conceptnet'):
     import conceptdb
     from conceptdb.justify import Reason
     conceptdb.connect('conceptdb')
@@ -97,7 +111,7 @@ def graph_from_conceptnet(output=None):
     for reason in Reason.objects:
         reason_name = '/c/%s' % reason.id
         if reason.target == '/sentence/None': continue
-        print len(bn.graph), reason_name
+        print len(bn.nodes), reason_name
         bn.add_conjunction(reason.factors, reason_name, reason.weight)
         bn.add_edge(reason_name, reason.target, 1.0)
     return bn
@@ -132,6 +146,13 @@ def graph_from_file(filename):
                 else:
                     bn.add_edge(source, target, weight)
     file.close()
+    
+    bn.make_fast_matrix()
+    bn.make_fast_conjunctions()
+    divisi2.save(list(bn.nodes), filename+'.nodelist.pickle')
+    divisi2.save(bn._fast_matrix, filename+'.matrix.pickle')
+    divisi2.save(bn._conjunction_matrix, filename+'.conjunctions.pickle')
+    
     return bn
 
 def demo():
@@ -147,17 +168,14 @@ def demo():
     bn.add_edge('B', 'E', 1.0)
     bn.add_conjunction(('C', 'G'), 'F', 1.0)
     bn.add_edge('B', 'G', -1.0)
-
+    bn.make_fast_matrix()
+    bn.make_fast_conjunctions()
     results = bn.spreading_activation(np.ones((len(bn.nodes),)), root='root')
     print results
     return bn
 
 def run_conceptnet(filename='conceptdb.graph'):
-    out = codecs.open(filename, 'w', encoding='utf-8')
-    bn = graph_from_conceptnet(out)
-    out.close()
+    bn = graph_from_file(filename)
     return bn
 
-if __name__ == '__main__':
-    belief_net = demo()
 
