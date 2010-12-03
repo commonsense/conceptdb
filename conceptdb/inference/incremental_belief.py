@@ -89,7 +89,7 @@ class BeliefNetwork(object):
             for node in self.nodes:
                 print node, '=>',
                 self.activate_node(node)
-                print self.justification.row_named(node).top_items()
+                print
         return self.justification
 
     def activate_node(self, node):
@@ -165,10 +165,6 @@ def graph_from_file(filename):
     
     bn.make_fast_matrix()
     bn.make_fast_conjunctions()
-    divisi2.save(list(bn.nodes), filename+'.nodelist.pickle')
-    divisi2.save(bn._fast_matrix, filename+'.matrix.pickle')
-    divisi2.save(bn._conjunction_matrix, filename+'.conjunctions.pickle')
-    
     return bn
 
 def demo():
