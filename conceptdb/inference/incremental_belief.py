@@ -19,10 +19,23 @@ def parallel(x1, x2):
         return 0
     return 1./(1./x1 + 1./x2)
 
+class Node(object):
+    def __init__(self, node):
+        self.node = node
+        self.outgoing_edges = []
+        self.incoming_edges = []
+
+    def add_outgoing_edge(self, edge, weight):
+        self.outgoing_edges.append((edge, weight))
+
+    def add_incoming_edge(self, edge, weight):
+        self.incoming_edges.append((edge, weight))
+
+   
 class BeliefNetwork(object):
     def __init__(self, output=None):
         self.nodes = OrderedSet()
-        self._node_matrix = None
+        self.node_objs = {} #dict mapping node name to Node object
         self._node_conjunctions = None
         self._fast_matrix = None
         self._fast_conjunctions = None
@@ -31,7 +44,9 @@ class BeliefNetwork(object):
     def load(node_file, matrix_file, conjunction_file):
         trust = BeliefNetwork()
         nodes = divisi2.load(node_file)
-        trust.nodes = OrderedSet(nodes)
+        for node in nodes:
+            trust.nodes.add(node)
+            trust.node_objs[node] = Node(node)          
         trust._fast_matrix = divisi2.load(matrix_file)
         trust._fast_conjunctions = divisi2.load(conjunction_file)
         return trust
@@ -39,50 +54,31 @@ class BeliefNetwork(object):
     def add_nodes(self, nodes):
         for node in nodes:
             self.nodes.add(node)
+            self.node_objs[node] = Node(node)
 
     def scan_edge(self, source, dest):
         self.nodes.add(source)
         self.nodes.add(dest)
+        self.node_objs[source] = Node(source)
+        self.node_objs[dest] = Node(dest)
 
-    def initialize_matrices(self):
-        self._node_matrix = sparse.dok_matrix((len(self.nodes), len(self.nodes)))
-        self._node_conjunctions = sparse.dok_matrix((len(self.nodes), len(self.nodes)))
+
+    def initialize_matrices(self): 
         self.justification = ReconstructedMatrix.make_random(self.nodes, self.nodes, 3)
         self.justification.right = self.justification.left.T
 
-    def add_edge(self, source, dest, weight):
-        source_idx = self.nodes.index(source)
-        dest_idx = self.nodes.index(dest)
-        self._node_matrix[dest_idx, source_idx] = weight
+    def add_edge(self, source, dest, weight, conjunction = False):
+        
+        self.node_objs[source].add_outgoing_edge(dest, weight)
+        if conjunction:
+            self.node_objs[dest].add_incoming_edge(source, weight) #weight here?
 
     def add_conjunction(self, sources, dest, weight):
-        dest_idx = self.nodes.index(dest)
         for i, source in enumerate(sources):
-            self.add_edge(source, dest, weight)
-            source_idx = self.nodes.index(source)
-            self._node_conjunctions[dest_idx, source_idx] = 1.0
+            self.add_edge(source, dest, weight, conjunction = True)
 
     def add_conjunction_piece(self, source, dest, weight):
-        source_idx = self.nodes.index(source)
-        dest_idx = self.nodes.index(dest)
-        self._node_matrix[dest_idx, source_idx] = weight
-        self._node_conjunctions[dest_idx, source_idx] = 1.0
-
-    def make_fast_matrix(self):
-        self._fast_matrix = self._node_matrix.tocsr()
-
-    def make_fast_conjunctions(self):
-        self._fast_conjunctions = self._node_conjunctions.tocsr()
-
-    def get_matrix(self):
-        if self._fast_matrix is None:
-            self.make_fast_matrix()
-        return self._fast_matrix
-
-    def get_conjunctions(self):
-        if self._fast_conjunctions is None:
-            self.make_fast_conjunctions()
-        return self._fast_conjunctions
+        self.add_edge(source, dest, weight, conjunction = True)
 
     def iterate(self, n=1000):
         for iter in xrange(n):
@@ -98,20 +94,21 @@ class BeliefNetwork(object):
         self.learn_justification(index, index, activation)
         curr = index
         for iter in xrange(20):
-            col = self._node_matrix[:, curr]
-            nz = nonzero(col)
+            #get the nodes that this node has outgoing edges to
+            nz = self.node_objs[node].outgoing_edges
             if len(nz) == 0:
                 break
             choice = random.choice(xrange(len(nz)))
-            next = nz[choice]
-            conj = self._fast_conjunctions[next, :]
-            for conj_index in np.nonzero(conj)[1]:
+            next = nz[choice][0]
+            conj = self.node_objs[next].incoming_edges
+            for con in conj:
+                conj_index = self.nodes.index(con[0])
                 if conj_index != curr:
-                    factor = conj[0, conj_index] * self.justification[index, conj_index]
+                    #FIXME: unsure of how to calculate this value
+                    factor =  self.justification[index, conj_index] #* conj[0, conj_index]
                     activation = parallel(activation, factor)
-            activation *= self._node_matrix[next, curr]
-            print self.nodes[next], ('(%4.4f) =>' % activation),
-            self.learn_justification(index, next, activation)
+            print self.nodes[self.nodes.index(next)], ('(%4.4f) =>' % activation),
+            self.learn_justification(index, self.nodes.index(next), activation)
             if activation == 0:
                 break
             curr = next
@@ -180,8 +177,6 @@ def demo():
     bn.add_edge('B', 'E', 1.0)
     bn.add_conjunction(('C', 'G'), 'F', 1.0)
     bn.add_edge('B', 'G', -1.0)
-    bn.make_fast_matrix()
-    bn.make_fast_conjunctions()
     bn.iterate(10000)
     return bn
 

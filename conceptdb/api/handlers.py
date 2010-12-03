@@ -46,8 +46,8 @@ class ConceptDBHandler(BaseHandler):
             return self.conceptLookup(request, obj_url)
         elif obj_url.startswith('/expression'):
             return self.expressionLookup(obj_url)
-        elif obj_url.startswith('/expressionAssertions'):
-            return self.expressionAssertionLookup(obj_url)
+        elif obj_url.startswith('/assertionexpressions'):
+            return self.assertionExpressionLookup(request, obj_url)
         #if none of the above, return bad request.  
         return rc.BAD_REQUEST
 
@@ -65,7 +65,8 @@ class ConceptDBHandler(BaseHandler):
             return self.assertionMake(request, obj_url)
         elif obj_url.startswith('/assertionvote') or obj_url.startswith('/assertionidvote'):
             return self.assertionVote(request, obj_url)
-    
+        return rc.BAD_REQUEST
+
     def datasetLookup(self,obj_url):
         """Method called when going to /api/data/{dataset name}.  Returns 
         a serialized version of the dataset."""
@@ -182,7 +183,7 @@ class ConceptDBHandler(BaseHandler):
         Accessed by going to URL /api/reason/{id}
         """
         try:
-            return Reason.get(obj_url.replace('/reason/', '')).serialize()
+            return Reason.objects.get(obj_url.replace('/reason/', '')).serialize()
         except DoesNotExist:
             return rc.NOT_FOUND
 
@@ -243,24 +244,13 @@ class ConceptDBHandler(BaseHandler):
 
         if context == "None":
             context = None
-
         if User.objects.get(username=user).check_password(password):
-
             #the user's password is correct.  Get their reason and add
-            #NOTE: may need changing if there are ExternalReason names I haven't accounted for
             
-            #NOTE: new reasons. A user might be the target of multiple reason objects
-            #so I'm adding all of them
-            user_reasons = []
-            cursor = Reason.objects._collection.find({'target': dataset + '/contributor/' + user})
-            while(true):
-                try:
-                    user_reasons.append(cursor.next())                        
-                except StopIteration:
-                    break;
-            if(len(user_reasons) == 0):
-                #if a user exists in the user table but doesn't have any Reasons, don't allow
-                return rc.FORBIDDEN
+            try:
+              user_reason = Reason.objects.get(target=dataset + '/contributor/' + user)
+            except DoesNotExist:
+              return rc.FORBIDDEN
         else:
             #incorrect password
             return rc.FORBIDDEN
@@ -273,7 +263,7 @@ class ConceptDBHandler(BaseHandler):
                 polarity = polarity,
                 context = context)
             
-            assertion.add_support(user_reasons) 
+            assertion.add_support([dataset + '/contributor/' + user]) 
             return "The assertion you created already exists.  Your vote for this \
             assertion has been counted.\n" + str(assertion.serialize())
 
@@ -284,7 +274,7 @@ class ConceptDBHandler(BaseHandler):
                         polarity = polarity,
                         context = context)
             
-            assertion.add_support(user_reasons) 
+            assertion.add_support([dataset + '/contributor/' + user]) 
 
             return assertion.serialize()
 
@@ -341,28 +331,19 @@ class ConceptDBHandler(BaseHandler):
         if User.objects.get(username=user).check_password(password):
 
             #the user's password is correct.  Get their reason and add
-            
-            #NOTE: new reasons. A user might be the target of multiple reason objects
-            #so I'm adding all of them
-            user_reasons = []
-            cursor = Reason.objects._collection.find({'target': dataset + '/contributor/' + user})
-            while(true):
-                try:
-                    user_reasons.append(cursor.next())                        
-                except StopIteration:
-                    break;
-            if(len(user_reasons) == 0):
-                #if a user exists in the user table but doesn't have any Reasons, don't allow
-                return rc.FORBIDDEN
+            try:
+              Reason.objects.get(target = dataset + '/contributor/' + user)
+            except DoesNotExist:
+              return rc.FORBIDDEN
         else:
             #incorrect password
             return rc.FORBIDDEN
          
         vote = request.POST['vote']
         if vote == "1": #vote in favor
-            assertion.add_support(user_reasons) 
+            assertion.add_support([dataset + '/contributor/' + user]) 
         elif vote == "-1": #vote against
-            assertion.add_oppose(user_reasons)
+            assertion.add_oppose([dataset + '/contributor/' + user])
         else: #invalid vote
             return rc.BAD_REQUEST
 
@@ -377,19 +358,21 @@ class ConceptDBHandler(BaseHandler):
 
 # expression lookup where given an assertion, while return given number of 
 #expressions that match the assertion -- similar to how concept lookup works now?
-
-    def expressionAssertionLookup(self, request, obj_url):
+    def assertionExpressionLookup(self, request, obj_url):
         assertionID = request.GET['id']
         start = int(request.GET.get('start', '0'))
         limit = int(request.GET.get('limit', '10'))
 
         #NOTE: should return ranked by confidence score.  For now assume that they do.
-        cursor = Expression.objects._collection.find({'assertion.id':assertionID})[start:start + limit]
+        try:
+            assertion = Assertion.get(assertionID)
+        except DoesNotExist:
+            return rc.NOT_FOUND
+        cursor = Expression.objects(assertion = assertion)[start:start + limit]
         expressions = []
-
         while (True):
             try:
-                expressions.append(str(cursor.next()['_id']))
+                expressions.append(str(cursor.next().id))
             except StopIteration:
                 break #no more assertions within the skip/limit boundaries
 
