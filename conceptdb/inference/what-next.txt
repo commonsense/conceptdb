@@ -18,8 +18,8 @@ To apply the SALSA random-walk idea to this:
 Scale invariance:
 
 - All hub scores start at 1, arbitrarily.
-- When calculating conjunctions, use (my hub score || other hub score) / (my
-  hub score), which puts them on a scale from 0 to 1. For a 2-node conjunction,
+- When calculating conjunctions, use (my score || other score) / (my
+  score), which puts them on a scale from 0 to 1. For a 2-node conjunction,
   that's (other / (me + other)).
 
 TODO: Reduce this to a matrix equation and try to show that it converges.
