@@ -13,7 +13,7 @@ import random
 import codecs
 
 # Constants
-OUT, IN = 1, -1
+DOWN, UP = 1, -1
 
 def load_graph(filename, encoding='utf-8'):
     return nx.read_edgelist(codecs.open(filename, encoding=encoding),
@@ -21,11 +21,11 @@ def load_graph(filename, encoding='utf-8'):
                             create_using=nx.DiGraph())
 
 def run_mole(graph, iterations=100):
-    graph.graph['steps_in'] = 0
-    graph.graph['steps_out'] = 0
+    graph.graph['steps_up'] = 0
+    graph.graph['steps_down'] = 0
     for node in graph.nodes_iter():
-        graph.node[node]['steps_in'] = 0
-        graph.node[node]['steps_out'] = 0
+        graph.node[node]['steps_up'] = 0
+        graph.node[node]['steps_down'] = 0
         graph.node[node]['hub'] = 1.0 / len(graph)
         graph.node[node]['authority'] = 0
     for iter in xrange(iterations):
@@ -38,14 +38,14 @@ def mole_step(graph):
     """
     
     for node in graph.nodes_iter():
-        mole_random_walk(graph, node, direction=IN)
-        mole_random_walk(graph, node, direction=OUT)
+        mole_random_walk(graph, node, direction=UP)
+        mole_random_walk(graph, node, direction=DOWN)
 
-    total_in = graph.graph['steps_in']
-    total_out = graph.graph['steps_out']
+    total_up = graph.graph['steps_up']
+    total_down = graph.graph['steps_down']
     for node in graph.nodes_iter():
-        graph.node[node]['hub'] = graph.node[node]['steps_in'] / float(total_in)
-        graph.node[node]['authority'] = graph.node[node]['steps_out'] / float(total_out)
+        graph.node[node]['hub'] = graph.node[node]['steps_up'] / float(total_up)
+        graph.node[node]['authority'] = graph.node[node]['steps_down'] / float(total_down)
 
 def mole_random_walk(graph, node, direction=None):
     """
@@ -56,14 +56,14 @@ def mole_random_walk(graph, node, direction=None):
     terminate.
     """
     if direction is None:
-        direction = random.choice([IN, OUT])
+        direction = random.choice([UP, DOWN])
     
-    if direction == IN:
+    if direction == UP:
         choices = graph.predecessors(node)
-        accumulator = 'steps_in'
-    elif direction == OUT:
+        accumulator = 'steps_up'
+    elif direction == DOWN:
         choices = graph.successors(node)
-        accumulator = 'steps_out'
+        accumulator = 'steps_down'
     else:
         raise ValueError("Invalid direction")
     
@@ -92,12 +92,12 @@ def node_weight(graph, node):
     """
     return graph.node[node]['hub'] + graph.node[node]['authority']
 
-def edge_weight(graph, n1, n2, direction=OUT):
+def edge_weight(graph, n1, n2, direction=DOWN):
     """
     Get the weight of the edge from `n1` to `n2`, taking conjunctions
     into account.
     """
-    if direction == IN:
+    if direction == UP:
         n1, n2 = n2, n1
     edge_data = graph[n1][n2]
     multiplier = 1.0
