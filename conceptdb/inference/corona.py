@@ -109,19 +109,18 @@ def edge_weight(graph, n1, n2, direction=DOWN):
         inv_parallel = 0.0
         for n3 in edge_data['dependencies']:
             weight = node_weight(graph, n3)
-            if weight == 0:
+            if weight <= 0:
                 # This depends on a conjunction that cannot be satisfied.
                 return 0.0
             inv_parallel += 1.0/weight
         multiplier = 1.0/inv_parallel/baseline
     return edge_data['weight'] * multiplier
 
-def edge_matrix(graph, direction=DOWN, final=False):
+def edge_matrix(graph, nodes, direction=DOWN, final=False):
     """
     This is a *terribly slow* way of getting the adjacency matrix for corona.
     Fix it.
     """
-    nodes = graph.nodes()
     n = len(graph)
     mat = np.zeros((n,n))
     for row in xrange(n):
@@ -129,45 +128,50 @@ def edge_matrix(graph, direction=DOWN, final=False):
             if nodes[col] in graph[nodes[row]]:
                 mat[row,col] += edge_weight(graph, nodes[row], nodes[col])
     if direction == UP:
+        #mat = np.maximum(0, mat.T)
         mat = mat.T
-    if not final:
-        mat = np.maximum(mat, 0)
-    sums = mat.sum(axis=1)
-    if not final:
-        for row in xrange(n):
-            if sums[row] == 0:
-                    mat[row,:] = 1.0/n
-            else:
-                mat[row,:] /= sums[row]
+    sums = np.abs(mat).sum(axis=1)
+    for row in xrange(n):
+        if sums[row] == 0:
+            if not final:
+                mat[row,0] = 1.0
+        else:
+            mat[row,:] /= sums[row]
     return mat
 
 def run_eigen(graph, tol=1e-6):
     n = len(graph)
-    for node in graph.nodes_iter():
+    nodes = graph.nodes()
+    for node in nodes:
         graph.node[node]['hub'] = 1.0/n
         graph.node[node]['authority'] = 0.0
+    vec = np.ones((n,), 'f') / n
     for iter in xrange(1000):
         print iter
-        matrix_down = edge_matrix(graph, DOWN)
-        matrix_up = edge_matrix(graph, UP)
+        matrix_down = edge_matrix(graph, nodes, DOWN)
+        matrix_up = edge_matrix(graph, nodes, UP)
         matrix = (matrix_down + matrix_up) / 2.0
+        #matrix = matrix_down
 
-        vec = np.ones((n,), 'f') / len(graph)
-        err = 1.0
-        for i in xrange(1000):
-            vlast = vec
-            vec = np.dot(vec, matrix)
-            err = np.absolute(vec - vlast).sum()
-            if err < n*tol:
-                break
-        if err > n*tol:
-            raise ValueError("failed to converge")
-        hub = np.dot(vec, edge_matrix(graph, UP, True))
-        authority = np.dot(vec, edge_matrix(graph, DOWN, True))
+        vlast = vec
+        w, v = np.linalg.eig(matrix.T)
+        vec = v[:, 0]
 
-        for i, node in enumerate(graph.nodes()):
+        # fix a root node if necessary
+        vec = (vec / vec[0]).real
+        hub = np.dot(vec, edge_matrix(graph, nodes, UP, True))
+        authority = np.dot(vec, edge_matrix(graph, nodes, DOWN, True))
+
+        for i, node in enumerate(nodes):
             graph.node[node]['hub'] = hub[i]
             graph.node[node]['authority'] = authority[i]
+            graph.node[node]['activation'] = vec[i]
+            graph.node[node]['vec'] = list(v[i])
+
+        err = np.absolute(vec - vlast).sum()
+        if err < n*tol:
+            break
+
     return graph
 
 def demo():
