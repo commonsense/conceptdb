@@ -1,6 +1,7 @@
-# Mole. Two syllables. Like what you put on Mexican food.
+# CORONA algorithm: Computation of Reliability of Networked Agents
+# 
 # This is meant to be an extension of SALSA that allows conjunctions, and
-# that doesn't get stuck in local ruts. I'll probably change the name.
+# that doesn't get stuck in local ruts.
 
 # Steps to implement:
 #   - Read in the graph using networkx.
@@ -9,8 +10,10 @@
 #   - ???
 
 import networkx as nx
+import numpy as np
 import random
 import codecs
+from csc.divisi2.ordered_set import OrderedSet
 
 # Constants
 DOWN, UP = 1, -1
@@ -20,7 +23,7 @@ def load_graph(filename, encoding='utf-8'):
                             data=True, delimiter='\t',
                             create_using=nx.DiGraph())
 
-def run_mole(graph, iterations=100):
+def run_corona(graph, iterations=100):
     graph.graph['steps_up'] = 0
     graph.graph['steps_down'] = 0
     for node in graph.nodes_iter():
@@ -29,17 +32,17 @@ def run_mole(graph, iterations=100):
         graph.node[node]['hub'] = 1.0 / len(graph)
         graph.node[node]['authority'] = 0
     for iter in xrange(iterations):
-        mole_step(graph)
+        corona_step(graph)
 
-def mole_step(graph):
+def corona_step(graph):
     """
     Do a random walk for every node in the graph, and accumulate hub and
     authority scores for each node.
     """
     
     for node in graph.nodes_iter():
-        mole_random_walk(graph, node, direction=UP)
-        mole_random_walk(graph, node, direction=DOWN)
+        corona_random_walk(graph, node, direction=UP)
+        corona_random_walk(graph, node, direction=DOWN)
 
     total_up = graph.graph['steps_up']
     total_down = graph.graph['steps_down']
@@ -47,7 +50,7 @@ def mole_step(graph):
         graph.node[node]['hub'] = graph.node[node]['steps_up'] / float(total_up)
         graph.node[node]['authority'] = graph.node[node]['steps_down'] / float(total_down)
 
-def mole_random_walk(graph, node, direction=None):
+def corona_random_walk(graph, node, direction=None):
     """
     Do a random walk from a given node. The direction of the initial step
     may be specified or chosen randomly.
@@ -82,7 +85,7 @@ def mole_random_walk(graph, node, direction=None):
         if probability_target < probability_used:
             graph.node[next_node][accumulator] += 1
             graph.graph[accumulator] += 1
-            return mole_random_walk(graph, next_node)
+            return corona_random_walk(graph, next_node)
     assert False, "Ran out of probability"
 
 def node_weight(graph, node):
@@ -113,9 +116,63 @@ def edge_weight(graph, n1, n2, direction=DOWN):
         multiplier = 1.0/inv_parallel/baseline
     return edge_data['weight'] * multiplier
 
+def edge_matrix(graph, direction=DOWN, final=False):
+    """
+    This is a *terribly slow* way of getting the adjacency matrix for corona.
+    Fix it.
+    """
+    nodes = graph.nodes()
+    n = len(graph)
+    mat = np.zeros((n,n))
+    for row in xrange(n):
+        for col in xrange(n):
+            if nodes[col] in graph[nodes[row]]:
+                mat[row,col] += edge_weight(graph, nodes[row], nodes[col])
+    if direction == UP:
+        mat = mat.T
+    if not final:
+        mat = np.maximum(mat, 0)
+    sums = mat.sum(axis=1)
+    if not final:
+        for row in xrange(n):
+            if sums[row] == 0:
+                    mat[row,:] = 1.0/n
+            else:
+                mat[row,:] /= sums[row]
+    return mat
+
+def run_eigen(graph, tol=1e-6):
+    n = len(graph)
+    for node in graph.nodes_iter():
+        graph.node[node]['hub'] = 1.0/n
+        graph.node[node]['authority'] = 0.0
+    for iter in xrange(1000):
+        print iter
+        matrix_down = edge_matrix(graph, DOWN)
+        matrix_up = edge_matrix(graph, UP)
+        matrix = (matrix_down + matrix_up) / 2.0
+
+        vec = np.ones((n,), 'f') / len(graph)
+        err = 1.0
+        for i in xrange(1000):
+            vlast = vec
+            vec = np.dot(vec, matrix)
+            err = np.absolute(vec - vlast).sum()
+            if err < n*tol:
+                break
+        if err > n*tol:
+            raise ValueError("failed to converge")
+        hub = np.dot(vec, edge_matrix(graph, UP, True))
+        authority = np.dot(vec, edge_matrix(graph, DOWN, True))
+
+        for i, node in enumerate(graph.nodes()):
+            graph.node[node]['hub'] = hub[i]
+            graph.node[node]['authority'] = authority[i]
+    return graph
+
 def demo():
     graph = load_graph('test.graph')
-    run_mole(graph)
+    run_eigen(graph)
     return graph
 
 if __name__ == '__main__':
