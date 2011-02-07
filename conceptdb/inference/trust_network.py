@@ -1,10 +1,12 @@
 from scipy import sparse
+from scipy.sparse.linalg import eigen
 from csc import divisi2
 from csc.divisi2.ordered_set import OrderedSet
 import numpy as np
 import codecs
 
 EPS = 1e-6
+DOWN, UP = 1, -1
 
 def make_diag(array):
     return sparse.dia_matrix(([array], [0]), shape=(len(array), len(array)))
@@ -14,15 +16,17 @@ class TrustNetwork(object):
         self.nodes = OrderedSet()
         self._node_matrix = None
         self._node_conjunctions = None
-        self._fast_matrix = None
+        self._fast_matrix_up = None
+        self._fast_matrix_down = None
         self._fast_conjunctions = None
 
     @staticmethod
-    def load(node_file, matrix_file, conjunction_file):
+    def load(node_file, matrix_up, matrix_down, conjunction_file):
         trust = TrustNetwork()
         nodes = divisi2.load(node_file)
         trust.nodes = OrderedSet(nodes)
-        trust._fast_matrix = divisi2.load(matrix_file)
+        trust._fast_matrix_up = divisi2.load(matrix_up)
+        trust._fast_matrix_down = divisi2.load(matrix_down)
         trust._fast_conjunctions = divisi2.load(conjunction_file)
         return trust
     
@@ -58,11 +62,19 @@ class TrustNetwork(object):
         self._node_conjunctions[dest_idx, source_idx] = 1.0
 
     def make_fast_matrix(self):
-        #rowsums = 1.0 / (EPS + self._node_matrix.multiply(self._node_matrix).sum(axis=1))
-        #rowsums = np.sqrt(np.asarray(rowsums)[:,0])
-        #rowdiag = make_diag(rowsums)
-        #self._fast_matrix = (rowdiag * self._node_matrix).tocsr()
         self._fast_matrix = self._node_matrix.tocsr()
+        for i in xrange(self._node_matrix.shape[0]):
+            self._node_matrix[0, i] += EPS
+            self._node_matrix[i, 0] += EPS
+        rowsums = 1.0 / (EPS + (self._fast_matrix).sum(axis=1))
+        rowsums = np.asarray(rowsums)[:,0]
+        rowdiag = make_diag(rowsums)
+        self._fast_matrix_down = (rowdiag * self._fast_matrix).tocsr()
+
+        colsums = 1.0 / (EPS + (self._fast_matrix).sum(axis=0))
+        colsums = np.asarray(colsums)[0,:]
+        coldiag = make_diag(colsums)
+        self._fast_matrix_up = (coldiag * self._fast_matrix.T).tocsr()
 
     def make_fast_conjunctions(self):
         #rowsums = 1.0 / (EPS + self._node_conjunctions.multiply(self._node_conjunctions).sum(axis=1))
@@ -71,36 +83,39 @@ class TrustNetwork(object):
         #self._fast_conjunctions = (rowdiag * self._node_conjunctions).tocsr()
         self._fast_conjunctions = self._node_conjunctions.tocsr()
 
-    def get_matrix(self):
-        if self._fast_matrix is None:
+    def get_matrices(self):
+        if self._fast_matrix_up is None:
             self.make_fast_matrix()
-        return self._fast_matrix
+        return self._fast_matrix_up, self._fast_matrix_down
 
     def get_conjunctions(self):
         if self._fast_conjunctions is None:
             self.make_fast_conjunctions()
         return self._fast_conjunctions
 
-    def spreading_activation(self, vec=None, root=None):
-        if vec is None:
-            vec = np.ones((len(self.nodes),))
+    def corona(self):
         cmat = self.get_conjunctions()
-        nmat = self.get_matrix()
+        mat_up, mat_down = self.get_matrices()
+        
+        hub = np.ones((mat_up.shape[0],))
+        authority = np.zeros((mat_up.shape[0],))
 
         for iter in xrange(100):
+            vec = authority + hub
             conj_sums = cmat * vec
             conj_par = 1.0/(np.maximum(EPS, cmat * (1.0 / np.maximum(EPS, vec))))
-            conj_factor = np.minimum(1.0, conj_par / conj_sums)
-            ## ignoring conjunctions for now
-            #newvec = nmat.dot(vec) * conj_factor + vec
+            conj_factor = np.minimum(1.0, conj_par / (conj_sums+EPS))
+            conj_diag = make_diag(conj_factor)
+            combined = conj_diag * (mat_up + mat_down)
+            #combined = (mat_up + mat_down) * 0.5
 
-            newvec = nmat.dot(vec) + vec
-            if root is not None and newvec[self.nodes.index(root)] < 0.0:
-                newvec = -newvec
-            newvec /= np.max(newvec)
-            print newvec
-            vec = newvec
-        return vec
+            w, v = eigen(combined, which='LR')
+            print w
+            activation = v[:,0]
+            activation = activation.real
+            hub = self._fast_matrix.T * conj_diag * activation
+            authority = conj_diag * self._fast_matrix * activation
+        return zip(self.nodes, hub, authority)
 
 def graph_from_conceptnet(output='conceptnet'):
     import conceptdb
@@ -150,8 +165,9 @@ def graph_from_file(filename):
     bn.make_fast_matrix()
     bn.make_fast_conjunctions()
     divisi2.save(list(bn.nodes), filename+'.nodelist.pickle')
-    divisi2.save(bn._fast_matrix, filename+'.matrix.pickle')
-    divisi2.save(bn._conjunction_matrix, filename+'.conjunctions.pickle')
+    divisi2.save(bn._fast_matrix_up, filename+'.up.pickle')
+    divisi2.save(bn._fast_matrix_down, filename+'.down.pickle')
+    divisi2.save(bn._fast_conjunctions, filename+'.conjunctions.pickle')
     
     return bn
 

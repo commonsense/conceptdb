@@ -1,7 +1,7 @@
 A	C	{'weight': 1.0}
 B	C	{'weight': 1.0}
-C	F	{'weight': -1.0, 'dependencies': ['C', 'D']}
-D	F	{'weight': -1.0, 'dependencies': ['C', 'D']}
-C	G	{'weight': -1.0}
+C	F	{'weight': 1.0, 'dependencies': ['C', 'D']}
+D	F	{'weight': -0.1, 'dependencies': ['C', 'D']}
+C	G	{'weight': -0.1}
 C	H	{'weight': 1.0}
 E	G	{'weight': 1.0}

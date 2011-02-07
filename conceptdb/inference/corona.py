@@ -13,7 +13,7 @@ import networkx as nx
 import numpy as np
 import random
 import codecs
-from csc.divisi2.ordered_set import OrderedSet
+from csc import divisi2
 
 # Constants
 DOWN, UP = 1, -1
