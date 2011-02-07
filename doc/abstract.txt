@@ -1,0 +1,17 @@
+In many networks, including webs of trust, link graphs on the Web, and
+semantically-linked knowledge bases, we wish to extract reliable information in
+the presence of unreliable nodes. CORONA, for Computation of Reliability of
+Networked Agents, is an unsupervised algorithm that calculates the reliability
+of each node in a graph, where some nodes represent possibly-unreliable agents
+that produce justifications for (or against) the reliability of other nodes.
+Going beyond similar algorithms such as PageRank, it allows for conjunctions
+and negations in addition to disjunctions in the graph, representing
+information that depends on the reliability of multiple agents, or information
+about which different agents actively disagree. In effect, it fuses the notions
+of a web of trust and an inexact truth-maintenance system. It can be
+implemented either with iterative updates on a graph or by converging to an
+eigenvector defined by the graph. In this paper, I examine the effectiveness of
+this algorithm on various test graphs, and then on a large justification graph
+derived from the collaborative knowledge base ConceptNet.
+
+# Computation of Reliability of Networked Agents
