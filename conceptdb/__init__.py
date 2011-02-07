@@ -1,5 +1,5 @@
 __import__('os').environ.setdefault('DJANGO_SETTINGS_MODULE', 'csc.django_settings')
-from conceptdb.log import Log
+from log import Log
 import mongoengine as mon
 from mongoengine.queryset import DoesNotExist, QuerySet
 from pymongo.objectid import ObjectId
@@ -23,6 +23,7 @@ def connect_to_mongodb(dbname='conceptdb',
     """
     _db = mon.connect(dbname, host=host, username=username, password=password)
     return _db
+connect = connect_to_mongodb
 
 class JSONScrubber(json.JSONEncoder):
     def _iterencode_dict(self, dct, markers=None):
@@ -42,10 +43,12 @@ class JSONScrubber(json.JSONEncoder):
         elif isinstance(obj, mon.Document):
             for token in self._iterencode_dict(obj.to_mongo(), markers):
                 yield token
+        elif isinstance(obj, mon.EmbeddedDocument):
+            yield str(obj)
         else:
             for token in json.JSONEncoder._iterencode_default(self, obj, markers):
                 yield token
-        
+
 def to_json(obj):
     return json.dumps(obj, cls=JSONScrubber)
 
@@ -78,7 +81,6 @@ class ConceptDBDocument(object):
             for key, value in fields.items():
                 update['set__'+key] = value
             result = query.update_one(**update)
-            Log.record_update(self, fields)
             return result
         else:
             self[fieldname].append(value)
@@ -91,7 +93,6 @@ class ConceptDBDocument(object):
                 'push__'+fieldname: value
             }
             result = query.update_one(**update)
-            Log.record_append(self, {fieldname: value})
             return result
         else:
             self[fieldname].append(value)
@@ -105,8 +106,6 @@ class ConceptDBDocument(object):
         result = mon.Document.save(self)
         if prevstate is None:
             Log.record_new(self)
-        else:
-            Log.record_diff(self, prevstate)
         return result
     
     def serialize(self):
@@ -115,12 +114,10 @@ class ConceptDBDocument(object):
     def to_json(self):
         return to_json(self)
 
-    def __repr__(self):
+    def __unicode__(self):
         assignments = ['%s=%r' % (key, value) for key, value in self.serialize().items()]
         assignments.sort()
-        return "%s(%s)" % (self.__class__.__name__,
-                           ', '.join(assignments))
+        return u"%s(%s)" % (self.__class__.__name__,
+                            ', '.join(assignments))
 
-    def __str__(self):
-        return repr(self)
 

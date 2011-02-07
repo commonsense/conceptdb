@@ -8,10 +8,10 @@ def test_assertion():
     # fresh start
     Dataset.drop_collection()
     Assertion.drop_collection() 
-    
     #create test dataset
-    dataset = Dataset.create(language = 'en', name = '/data/test')
 
+    dataset = Dataset.create(language = 'en', name = '/data/test')
+    
     #make a test assertion
     a1 = Assertion.make('/data/test',"/rel/IsA",["/concept/test/assertion", "/concept/test/test"])
 
@@ -26,8 +26,7 @@ def test_assertion():
     a1.complete
     a1.context
     a1.polarity
-    a1.expressions
-    a1.justification    
+    a1.confidence
 
     #make an identical test assertion
     a2 = Assertion.make('/data/test',"/rel/IsA",["/concept/test/assertion", "/concept/test/test"])
@@ -46,8 +45,8 @@ def test_assertion():
     a2.complete
     a2.context
     a2.polarity
-    a2.expressions
-    a2.justification
+    a2.confidence
+    
     #check that all checked attributes are the same
     assert a1.dataset == a2.dataset
     assert a1.relation == a2.relation

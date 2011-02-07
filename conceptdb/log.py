@@ -2,7 +2,7 @@ import mongoengine as mon
 from datetime import datetime
 
 class Log(mon.Document):
-    object = mon.GenericReferenceField(required=True)
+    object = mon.GenericReferenceField()
     action = mon.StringField()
     data = mon.DictField()
     timestamp = mon.DateTimeField(default=datetime.utcnow)
@@ -15,31 +15,16 @@ class Log(mon.Document):
     
     @staticmethod
     def record_new(object):
-        return Log.add_entry(object, 'create', {'value': object.serialize()})
+        return Log.add_entry(object, 'create', {})
 
     @staticmethod
-    def record_diff(object, saved):
-        changed = {}
-        for field in object._fields:
-            newval = getattr(obj, field)
-            oldval = getattr(saved, field, None)
-            if newval != oldval:
-                changed[field] = newval
-        return Log.record_update(object, changed)
-
-    @staticmethod
-    def record_update(object, changed):
-        for key, value in changed.items():
-            if isinstance(value, (mon.Document, mon.EmbeddedDocument)):
-                changed[key] = object.to_mongo()
-        return Log.add_entry(object, 'update', {'value': changed})
+    def record_update(object):
+        return Log.add_entry(object, 'update', {})
     
     @staticmethod
-    def record_append(object, changed):
-        for key, value in changed.items():
-            if isinstance(value, (mon.Document, mon.EmbeddedDocument)):
-                changed[key] = object.to_mongo()
-        return Log.add_entry(object, 'append', {'value': changed})
+    def record_error(object, errtype, value):
+        return Log.add_entry(object, 'error', {'type': errtype,
+                                               'value': value})
     
     @classmethod
     def create(cls, **fields):

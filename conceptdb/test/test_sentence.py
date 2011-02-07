@@ -18,8 +18,8 @@ def test_sentence():
     sentence1.text
     sentence1.words
     sentence1.dataset
-    sentence1.justification
     sentence1.derived_assertions
+    sentence1.confidence
 
     #make the same sentence, this time using dataset object instead of string
     sentence2 = Sentence.make(dataset, "This is a test sentence.")
@@ -34,8 +34,8 @@ def test_sentence():
     sentence2.text
     sentence2.words
     sentence2.dataset
-    sentence2.justification
     sentence2.derived_assertions
+    sentence2.confidence
 
     #make a different sentence
     sentence3 = Sentence.make('/data/test', "This is a different test sentence.");
@@ -49,8 +49,8 @@ def test_sentence():
     sentence3.text
     sentence3.words
     sentence3.dataset
-    sentence3.justification
     sentence3.derived_assertions
+    sentence3.confidence
 
     #clean up by dropping collections
     Dataset.drop_collection()
