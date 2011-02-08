@@ -102,23 +102,29 @@ class TrustNetwork(object):
         mat_up, mat_down = self.get_matrices()
         
         hub = np.ones((mat_up.shape[0],))
-        authority = np.zeros((mat_up.shape[0],))
+        authority = np.ones((mat_up.shape[0],))
 
-        for iter in xrange(100):
+        for iter in xrange(1000):
             vec = authority + hub
+            vec /= np.max(vec)
             conj_sums = cmat * vec
             conj_par = 1.0/(np.maximum(EPS, cmat * (1.0 / np.maximum(EPS, vec))))
             conj_factor = np.minimum(1.0, conj_par / (conj_sums+EPS))
             conj_diag = make_diag(conj_factor)
-            combined = conj_diag * (mat_up + mat_down)
+            combined = conj_diag * (mat_up + mat_down) + make_diag(np.ones(len(vec)))
             #combined = (mat_up + mat_down) * 0.5
 
-            u, sigma, v = sparse_svd(combined, k=5)
+            u, sigma, v = sparse_svd(combined, k=4)
             activation = np.dot(u, u[0])
             activation = (activation / (activation[0]+EPS)).real
             print activation
-            hub = self._fast_matrix.T * conj_diag * activation
-            authority = conj_diag * self._fast_matrix * activation
+            print sigma
+            print conj_factor
+            print
+            hub += self._fast_matrix.T * conj_diag * activation
+            authority += conj_diag * self._fast_matrix * activation
+        hub /= np.max(hub)
+        authority /= np.max(authority)
         return zip(self.nodes, hub, authority)
 
 def output_edge(file, source, target, **data):
