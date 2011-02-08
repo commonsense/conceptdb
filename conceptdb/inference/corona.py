@@ -117,10 +117,19 @@ def edge_weight(graph, n1, n2, direction=DOWN):
     return edge_data['weight'] * multiplier
 
 def edge_matrix(graph, nodes, direction=DOWN, final=False):
-    """
-    This is a *terribly slow* way of getting the adjacency matrix for corona.
-    Fix it.
-    """
+    entries = []
+    conjunctions = []
+    for source, dest, data in graph.edges_iter(data=True):
+        if direction == UP:
+            source, dest = dest, source
+        weight = data['weight']
+        dependencies = [source]
+        if 'dependencies' in data:
+            dependencies = data['dependencies']
+        entries.append((weight, source, dest))
+    for node in nodes:
+        entries.append((.001, source, data[0]))
+
     n = len(graph)
     mat = np.zeros((n,n))
     for row in xrange(n):

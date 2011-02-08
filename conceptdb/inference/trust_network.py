@@ -66,22 +66,26 @@ class TrustNetwork(object):
         for i in xrange(self._node_matrix.shape[0]):
             self._node_matrix[0, i] += EPS
             self._node_matrix[i, 0] += EPS
-        rowsums = 1.0 / (EPS + (self._fast_matrix).sum(axis=1))
+        abs_matrix = np.abs(self._fast_matrix)
+        rowsums = 1.0 / (EPS + (abs_matrix).sum(axis=1))
         rowsums = np.asarray(rowsums)[:,0]
         rowdiag = make_diag(rowsums)
         self._fast_matrix_down = (rowdiag * self._fast_matrix).tocsr()
 
-        colsums = 1.0 / (EPS + (self._fast_matrix).sum(axis=0))
+        colsums = 1.0 / (EPS + (abs_matrix).sum(axis=0))
         colsums = np.asarray(colsums)[0,:]
         coldiag = make_diag(colsums)
         self._fast_matrix_up = (coldiag * self._fast_matrix.T).tocsr()
 
     def make_fast_conjunctions(self):
-        #rowsums = 1.0 / (EPS + self._node_conjunctions.multiply(self._node_conjunctions).sum(axis=1))
-        #rowsums = np.sqrt(np.asarray(rowsums)[:,0])
-        #rowdiag = make_diag(rowsums)
-        #self._fast_conjunctions = (rowdiag * self._node_conjunctions).tocsr()
-        self._fast_conjunctions = self._node_conjunctions.tocsr()
+        csr_conjunctions = self._node_conjunctions.tocsr()
+        n = csr_conjunctions.shape[0]
+        scale_vec = np.zeros((n,))
+        for row in xrange(n):
+            nnz = csr_conjunctions[row].nnz
+            if nnz > 0:
+                scale_vec[row] = 1.0/nnz
+        self._fast_conjunctions = make_diag(scale_vec) * csr_conjunctions
 
     def get_matrices(self):
         if self._fast_matrix_up is None:
@@ -109,27 +113,49 @@ class TrustNetwork(object):
             combined = conj_diag * (mat_up + mat_down)
             #combined = (mat_up + mat_down) * 0.5
 
-            w, v = eigen(combined, which='LR')
+            w, v = eigen(combined, which='LR', k=3)
             print w
-            activation = v[:,0]
-            activation = activation.real
+            col = np.argmax(w.real)
+            activation = v[:,col]
+            activation = (activation / activation[0]).real
             hub = self._fast_matrix.T * conj_diag * activation
             authority = conj_diag * self._fast_matrix * activation
         return zip(self.nodes, hub, authority)
 
-def graph_from_conceptnet(output='conceptnet'):
+def output_edge(file, source, target, **data):
+    line = u"%s\t%s\t%s" % (source, target, data)
+    print line.encode('utf-8')
+    print >> file, line.encode('utf-8')
+
+from collections import defaultdict
+def graph_from_conceptdb(output='conceptdb.graph'):
     import conceptdb
     from conceptdb.justify import Reason
     conceptdb.connect('conceptdb')
-
-    bn = TrustNetwork(output=output)
+    outfile = open(output, 'w')
+    
+    counts = defaultdict(int)
     for reason in Reason.objects:
         reason_name = '/c/%s' % reason.id
         if reason.target == '/sentence/None': continue
-        print len(bn.nodes), reason_name
-        bn.add_conjunction(reason.factors, reason_name, reason.weight)
-        bn.add_edge(reason_name, reason.target, 1.0)
-    return bn
+        for factor in reason.factors:
+            counts[factor] += 1
+        counts[reason.target] += 1
+    print 'counted'
+    for reason in Reason.objects:
+        reason_name = '/c/%s' % reason.id
+        if reason.target == '/sentence/None': continue
+        polar_weight = 1.0
+        if reason.polarity == False: polar_weight = -0.5
+        factor_counts = [counts[factor] for factor in reason.factors]
+        if min(factor_counts) <= 3: continue
+        if counts[reason.target] <= 3: continue
+        for factor in reason.factors:
+            output_edge(outfile, factor, reason_name, weight=reason.weight, dependencies=reason.factors)
+        output_edge(outfile, reason_name, reason.target, weight=polar_weight)
+    outfile.close()
+    print "Done building the file."
+    return graph_from_file(output)
 
 def graph_from_file(filename):
     bn = TrustNetwork(output=None)
