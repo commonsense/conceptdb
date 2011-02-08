@@ -1,5 +1,5 @@
 from scipy import sparse
-from scipy.sparse.linalg import eigen
+from scipy.sparse.linalg import eigen, svd as sparse_svd
 from csc import divisi2
 from csc.divisi2.ordered_set import OrderedSet
 import numpy as np
@@ -113,11 +113,10 @@ class TrustNetwork(object):
             combined = conj_diag * (mat_up + mat_down)
             #combined = (mat_up + mat_down) * 0.5
 
-            w, v = eigen(combined, which='LR', k=3)
-            print w
-            col = np.argmax(w.real)
-            activation = v[:,col]
-            activation = (activation / activation[0]).real
+            u, sigma, v = sparse_svd(combined, k=5)
+            activation = np.dot(u, u[0])
+            activation = (activation / (activation[0]+EPS)).real
+            print activation
             hub = self._fast_matrix.T * conj_diag * activation
             authority = conj_diag * self._fast_matrix * activation
         return zip(self.nodes, hub, authority)
