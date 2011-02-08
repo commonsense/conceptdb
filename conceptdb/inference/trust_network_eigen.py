@@ -5,7 +5,7 @@ from csc.divisi2.ordered_set import OrderedSet
 import numpy as np
 import codecs
 
-EPS = 1e-6
+EPS = 1e-20
 DOWN, UP = 1, -1
 
 def make_diag(array):
@@ -71,12 +71,12 @@ class TrustNetwork(object):
         rowsums = np.asarray(rowsums)[:,0]
         rowdiag = make_diag(rowsums)
         self._fast_matrix_down = (rowdiag * self._fast_matrix).tocsr()
-        #self._fast_matrix_up = self._fast_matrix_down.T.tocsr()
+        self._fast_matrix_up = self._fast_matrix_down.T.tocsr()
 
-        colsums = 1.0 / (EPS + (abs_matrix).sum(axis=0))
-        colsums = np.asarray(colsums)[0,:]
-        coldiag = make_diag(colsums)
-        self._fast_matrix_up = (coldiag * self._fast_matrix.T).tocsr()
+        #colsums = 1.0 / (EPS + (abs_matrix).sum(axis=0))
+        #colsums = np.asarray(colsums)[0,:]
+        #coldiag = make_diag(colsums)
+        #self._fast_matrix_up = (coldiag * self._fast_matrix.T).tocsr()
 
     def make_fast_conjunctions(self):
         csr_conjunctions = self._node_conjunctions.tocsr()
@@ -117,13 +117,13 @@ class TrustNetwork(object):
             combined = conj_diag * (mat_up + mat_down) + make_diag(np.ones(len(vec)))
             #combined = (mat_up + mat_down) * 0.5
 
-            u, sigma, v = sparse_svd(combined, k=4)
-            activation = np.dot(u, u[0])
-            #w, v = eigen(combined, k=3, v0=root)
-            #activation = v[:, np.argmax(w)]
-            #activation = (activation / (activation[0]+EPS)).real
+            #u, sigma, v = sparse_svd(combined, k=4)
+            #activation = np.dot(u, u[0])
+            w, v = eigen(combined, k=1, v0=root, which='LR')
+            activation = v[:, np.argmax(w)]
+            activation = (activation / (activation[0]+EPS)).real
             print activation
-            print sigma
+            print w
             print conj_factor
             print
             hub += self._fast_matrix.T * conj_diag * activation
