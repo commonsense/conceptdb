@@ -63,9 +63,9 @@ class TrustNetwork(object):
 
     def make_fast_matrix(self):
         self._fast_matrix = self._node_matrix.tocsr()
-        for i in xrange(self._node_matrix.shape[0]):
-            self._node_matrix[0, i] += EPS
-            self._node_matrix[i, 0] += EPS
+        #for i in xrange(self._node_matrix.shape[0]):
+        #    self._node_matrix[0, i] += EPS
+        #    self._node_matrix[i, 0] += EPS
         csr_matrix = self._node_matrix.tocsr()
         abs_matrix = np.abs(csr_matrix)
         rowsums = 1.0 / (EPS + (abs_matrix).sum(axis=1))
@@ -113,7 +113,7 @@ class TrustNetwork(object):
         for iter in xrange(100):
             vec = authority + hub
             vec /= np.max(vec)
-            root = vec * 0
+            root = np.zeros(len(vec), 'f')
             root[0] = 1.0
             conj_sums = cmat * vec
             conj_par = 1.0/(np.maximum(EPS, cmat * (1.0 / np.maximum(EPS, vec))))
@@ -122,11 +122,12 @@ class TrustNetwork(object):
             combined = conj_diag * (mat_up + mat_down) * 0.25 + make_diag(np.ones(len(vec))*0.5)
             #combined = (mat_up + mat_down) * 0.5
 
-            #u, sigma, v = sparse_svd(combined, k=4)
+            u, sigma, v = sparse_svd(combined, k=1)
+            activation = u[:, 0]
             #activation = np.dot(u, u[0])
-            w, v = eigen(combined.T, k=1, v0=root, which='LR')
-            activation = v[:, np.argmax(w)].real
-            activation *= np.sign(activation[0])
+            #w, v = eigen(combined.T, k=1, v0=root, which='LR')
+            #activation = v[:, np.argmax(w)].real
+            activation *= np.sign(np.sum(activation))
             activation /= (np.sum(np.abs(activation)) + EPS)
             hub += (hub + self._final_matrix_T * conj_diag * activation) / 2
             authority += (authority + conj_diag * self._final_matrix * activation) / 2
@@ -139,7 +140,7 @@ class TrustNetwork(object):
                 break
             prev_err = err
             prev_activation = activation.copy()
-            print w
+            print sigma
             print conj_factor
             print
         hub = self._final_matrix_T * conj_diag * activation
