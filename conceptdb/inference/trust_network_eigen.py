@@ -71,12 +71,12 @@ class TrustNetwork(object):
         rowsums = np.asarray(rowsums)[:,0]
         rowdiag = make_diag(rowsums)
         self._fast_matrix_down = (rowdiag * self._fast_matrix).tocsr()
-        self._fast_matrix_up = self._fast_matrix_down.T.tocsr()
+        self._fast_matrix_down_T = self._fast_matrix_down.T.tocsr()
 
-        #colsums = 1.0 / (EPS + (abs_matrix).sum(axis=0))
-        #colsums = np.asarray(colsums)[0,:]
-        #coldiag = make_diag(colsums)
-        #self._fast_matrix_up = (coldiag * self._fast_matrix.T).tocsr()
+        colsums = 1.0 / (EPS + (abs_matrix).sum(axis=0))
+        colsums = np.asarray(colsums)[0,:]
+        coldiag = make_diag(colsums)
+        self._fast_matrix_up = (coldiag * self._fast_matrix.T).tocsr()
 
     def make_fast_conjunctions(self):
         csr_conjunctions = self._node_conjunctions.tocsr()
@@ -91,7 +91,7 @@ class TrustNetwork(object):
     def get_matrices(self):
         if self._fast_matrix_up is None:
             self.make_fast_matrix()
-        return self._fast_matrix_up, self._fast_matrix_down
+        return self._fast_matrix_down_T, self._fast_matrix_down
 
     def get_conjunctions(self):
         if self._fast_conjunctions is None:
@@ -102,8 +102,10 @@ class TrustNetwork(object):
         cmat = self.get_conjunctions()
         mat_up, mat_down = self.get_matrices()
         
-        hub = np.ones((mat_up.shape[0],))
-        authority = np.ones((mat_up.shape[0],))
+        hub = np.ones((mat_up.shape[0],)) / mat_up.shape[0] / 10
+        authority = np.ones((mat_up.shape[0],)) / mat_up.shape[0] / 10
+        prev_activation = np.zeros((mat_up.shape[0],))
+        prev_err = 1.0
 
         for iter in xrange(100):
             vec = authority + hub
@@ -114,22 +116,31 @@ class TrustNetwork(object):
             conj_par = 1.0/(np.maximum(EPS, cmat * (1.0 / np.maximum(EPS, vec))))
             conj_factor = np.minimum(1.0, conj_par / (conj_sums+EPS))
             conj_diag = make_diag(conj_factor)
-            combined = conj_diag * (mat_up + mat_down) + make_diag(np.ones(len(vec)))
+            combined = conj_diag * (mat_up + mat_down) * 0.25 + make_diag(np.ones(len(vec))*0.5)
             #combined = (mat_up + mat_down) * 0.5
 
             #u, sigma, v = sparse_svd(combined, k=4)
             #activation = np.dot(u, u[0])
-            w, v = eigen(combined, k=1, v0=root, which='LR')
-            activation = v[:, np.argmax(w)]
-            activation = (activation / (activation[0]+EPS)).real
+            w, v = eigen(combined.T, k=1, v0=root, which='LR')
+            activation = v[:, np.argmax(w)].real
+            activation *= np.sign(activation[0])
+            activation /= (np.sum(np.abs(activation)) + EPS)
+            hub += (hub + self._fast_matrix_down_T * conj_diag * activation) / 2
+            authority += (authority + conj_diag * self._fast_matrix_down * activation) / 2
             print activation
+            err = np.max(np.abs(activation - prev_activation))\
+                / np.max(np.abs(activation))
+            print err
+            if iter >= 3 and err + prev_err < 1e-6:
+                print "converged on iteration %d" % iter
+                break
+            prev_err = err
+            prev_activation = activation.copy()
             print w
             print conj_factor
             print
-            hub += self._fast_matrix.T * conj_diag * activation
-            authority += conj_diag * self._fast_matrix * activation
-        hub /= np.max(hub)
-        authority /= np.max(authority)
+        hub = self._fast_matrix_up * conj_diag * activation
+        authority = conj_diag * self._fast_matrix_down * activation
         return zip(self.nodes, hub, authority)
 
 def output_edge(file, source, target, **data):
