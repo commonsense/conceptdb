@@ -17,7 +17,7 @@ class TrustNetwork(object):
         self._node_matrix = None
         self._node_conjunctions = None
         self._fast_matrix_up = None
-        self._fast_matrix_down = None
+        self._transition_matrix = None
         self._fast_conjunctions = None
 
     @staticmethod
@@ -26,7 +26,7 @@ class TrustNetwork(object):
         nodes = divisi2.load(node_file)
         trust.nodes = OrderedSet(nodes)
         trust._fast_matrix_up = divisi2.load(matrix_up)
-        trust._fast_matrix_down = divisi2.load(matrix_down)
+        trust._transition_matrix = divisi2.load(matrix_down)
         trust._fast_conjunctions = divisi2.load(conjunction_file)
         return trust
     
@@ -66,16 +66,19 @@ class TrustNetwork(object):
         for i in xrange(self._node_matrix.shape[0]):
             self._node_matrix[0, i] += EPS
             self._node_matrix[i, 0] += EPS
-        abs_matrix = np.abs(self._fast_matrix)
+        csr_matrix = self._node_matrix.tocsr()
+        abs_matrix = np.abs(csr_matrix)
         rowsums = 1.0 / (EPS + (abs_matrix).sum(axis=1))
         rowsums = np.asarray(rowsums)[:,0]
         rowdiag = make_diag(rowsums)
-        self._fast_matrix_down = (rowdiag * self._fast_matrix).tocsr()
-        self._fast_matrix_down_T = self._fast_matrix_down.T.tocsr()
-
         colsums = 1.0 / (EPS + (abs_matrix).sum(axis=0))
         colsums = np.asarray(colsums)[0,:]
         coldiag = make_diag(colsums)
+        self._transition_matrix = (csr_matrix * coldiag).tocsr()
+        self._transition_matrix_T = self._transition_matrix.T.tocsr()
+        self._final_matrix = (rowdiag * self._fast_matrix).tocsr()
+        self._final_matrix_T = (coldiag * self._fast_matrix.T).tocsr()
+
         self._fast_matrix_up = (coldiag * self._fast_matrix.T).tocsr()
 
     def make_fast_conjunctions(self):
@@ -91,7 +94,7 @@ class TrustNetwork(object):
     def get_matrices(self):
         if self._fast_matrix_up is None:
             self.make_fast_matrix()
-        return self._fast_matrix_down_T, self._fast_matrix_down
+        return self._transition_matrix_T, self._transition_matrix
 
     def get_conjunctions(self):
         if self._fast_conjunctions is None:
@@ -102,8 +105,8 @@ class TrustNetwork(object):
         cmat = self.get_conjunctions()
         mat_up, mat_down = self.get_matrices()
         
-        hub = np.ones((mat_up.shape[0],)) / mat_up.shape[0] / 10
-        authority = np.ones((mat_up.shape[0],)) / mat_up.shape[0] / 10
+        hub = np.ones((mat_up.shape[0],)) / mat_up.shape[0] / 100
+        authority = np.ones((mat_up.shape[0],)) / mat_up.shape[0] / 100
         prev_activation = np.zeros((mat_up.shape[0],))
         prev_err = 1.0
 
@@ -125,13 +128,13 @@ class TrustNetwork(object):
             activation = v[:, np.argmax(w)].real
             activation *= np.sign(activation[0])
             activation /= (np.sum(np.abs(activation)) + EPS)
-            hub += (hub + self._fast_matrix_down_T * conj_diag * activation) / 2
-            authority += (authority + conj_diag * self._fast_matrix_down * activation) / 2
+            hub += (hub + self._final_matrix_T * conj_diag * activation) / 2
+            authority += (authority + conj_diag * self._final_matrix * activation) / 2
             print activation
             err = np.max(np.abs(activation - prev_activation))\
                 / np.max(np.abs(activation))
             print err
-            if iter >= 3 and err + prev_err < 1e-6:
+            if iter >= 3 and err + prev_err < 1e-9:
                 print "converged on iteration %d" % iter
                 break
             prev_err = err
@@ -139,8 +142,8 @@ class TrustNetwork(object):
             print w
             print conj_factor
             print
-        hub = self._fast_matrix_up * conj_diag * activation
-        authority = conj_diag * self._fast_matrix_down * activation
+        hub = self._final_matrix_T * conj_diag * activation
+        authority = conj_diag * self._final_matrix * activation
         return zip(self.nodes, hub, authority)
 
 def output_edge(file, source, target, **data):
@@ -211,10 +214,6 @@ def graph_from_file(filename):
     
     bn.make_fast_matrix()
     bn.make_fast_conjunctions()
-    divisi2.save(list(bn.nodes), filename+'.nodelist.pickle')
-    divisi2.save(bn._fast_matrix_up, filename+'.up.pickle')
-    divisi2.save(bn._fast_matrix_down, filename+'.down.pickle')
-    divisi2.save(bn._fast_conjunctions, filename+'.conjunctions.pickle')
     
     return bn
 
