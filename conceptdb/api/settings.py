@@ -1,6 +1,6 @@
 # Django settings for api project.
 from db_config import *
-DEBUG = True
+DEBUG = False
 TEMPLATE_DEBUG = DEBUG
 
 ADMINS = (

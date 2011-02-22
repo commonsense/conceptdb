@@ -32,6 +32,8 @@ r = Reason.make('/data/test/contributor/elhawk', ['user_factor'], 0.75, True)
 
 #use the reason to vote for assertion a1
 ra1 = a1.add_support(['/data/test/contributor/elhawk'])
+conf1 = a1.update_confidence()
 
 #use the reason to vote against assertion a2
 ra2 = a2.add_oppose(['/data/test/contributor/elhawk'])
+conf2 = a2.update_confidence()

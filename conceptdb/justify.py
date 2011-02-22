@@ -26,6 +26,10 @@ class Reason(ConceptDBDocument, mon.Document):
 
     # polarity: Is this a reason to believe or disbelieve its target?
     polarity = mon.BooleanField()
+    
+    # confidence_update: Has the weight of this reason been added to the target's
+    # confidence value yet?
+    #confidence_update = mon.BooleanField()
 
     meta = {'indexes': [('target', 'polarity'),
                         'factors']}
@@ -34,19 +38,21 @@ class Reason(ConceptDBDocument, mon.Document):
     def make(target, factors, weight, polarity):
         target = ensure_reference(target)
         factors = [ensure_reference(f) for f in factors]
+        #confidence_update=False
         r = Reason.objects.get_or_create(
             target=target,
             factors__all=factors,
             polarity=polarity,
             defaults={'factors': factors, 'weight': weight}
         )
-        if r.id is not None:
+        if r[0].id is not None:
             # FIXME: this minimizes the number of factors at all costs.
             # Occam's supercharged electric razor may not be exactly the right
             # criterion.
-            r.factors = factors
-            r.weight = weight
-        return r
+            r[0].factors = factors
+            r[0].weight = weight
+            #r[0].confidence_update=confidence_update
+        return r[0]
 
     def check_consistency(self):
         assert 0.0 <= self.weight <= 1.0
@@ -70,7 +76,18 @@ class ConceptDBJustified(ConceptDBDocument):
 
     def update_confidence(self):
         # TODO
-        pass
+        self.confidence=0
+        #, confidence_update=False
+        for r in Reason.objects(target=self.name):
+            # Add the weight to the confidence value, should be changed to something else
+            self.confidence+=r.weight
+            
+            # Set the reason's confidence_update value to True to ensure it won't be added again
+            r.confidence_update = True
+            
+            self.save()
+            r.save()
+        return self.confidence
 
     def get_support(self):
         return Reason.objects(target=self.name, polarity=True)
