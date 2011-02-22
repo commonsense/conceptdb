@@ -66,6 +66,8 @@ class BeliefNetwork(object):
     def initialize_matrices(self): 
         self.justification = ReconstructedMatrix.make_random(self.nodes, self.nodes, 3)
         self.justification.right = self.justification.left.T
+        self.justification.left.fill(0.01)
+        self.justification.right.fill(0.01)
 
     def add_edge(self, source, dest, weight, conjunction = False):
         
@@ -85,21 +87,27 @@ class BeliefNetwork(object):
             for node in self.nodes:
                 print node, '=>',
                 self.activate_node(node)
-                print self.justification.row_named(node).top_items()
+                print
         return self.justification
 
     def activate_node(self, node):
         index = self.nodes.index(node)
-        activation = 1.0
-        self.learn_justification(index, index, activation)
-        curr = index
+        activation = None
+        self.learn_justification(index, index, 1.0)
+        curr = node
         for iter in xrange(20):
             #get the nodes that this node has outgoing edges to
-            nz = self.node_objs[node].outgoing_edges
+            nz = self.node_objs[curr].outgoing_edges
             if len(nz) == 0:
                 break
             choice = random.choice(xrange(len(nz)))
-            next = nz[choice][0]
+            next, weight = nz[choice]
+            if activation is None:
+                activation = weight
+            else:
+                activation = parallel(activation, weight)
+            assert next != curr
+            assert activation is not None
             conj = self.node_objs[next].incoming_edges
             for con in conj:
                 conj_index = self.nodes.index(con[0])
@@ -109,7 +117,7 @@ class BeliefNetwork(object):
                     activation = parallel(activation, factor)
             print self.nodes[self.nodes.index(next)], ('(%4.4f) =>' % activation),
             self.learn_justification(index, self.nodes.index(next), activation)
-            if activation == 0:
+            if activation <= 0:
                 break
             curr = next
     
@@ -159,16 +167,11 @@ def graph_from_file(filename):
                 else:
                     bn.add_edge(source, target, weight)
     file.close()
-    
-    bn.make_fast_matrix()
-    bn.make_fast_conjunctions()
-    divisi2.save(list(bn.nodes), filename+'.nodelist.pickle')
-    divisi2.save(bn._fast_matrix, filename+'.matrix.pickle')
-    divisi2.save(bn._conjunction_matrix, filename+'.conjunctions.pickle')
-    
     return bn
 
 def demo():
+    # Set up a simple belief network and run it until it converges to
+    # something.
     bn = BeliefNetwork()
     bn.add_nodes(('root', 'A', 'B', 'C', 'D', 'E', 'F', 'G'))
     bn.initialize_matrices()
@@ -188,3 +191,10 @@ def run_conceptnet(filename='conceptdb.graph'):
     bn = graph_from_file(filename)
     return bn
 
+# TODO:
+#   make this step forwards and backwards
+#   separate similarity from justification
+# or something. See what-next.txt.
+#
+# this paper is useful: White and Smyth, Algorithms for Estimating Relative
+# Importance in Networks

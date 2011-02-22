@@ -1,0 +1,56 @@
+Let's simplify the problem. We have a mostly-bipartite multigraph of things we
+might believe, and (conjunctions of) reasons to believe them.
+
+To apply the SALSA random-walk idea to this:
+
+- Calculate the weights of all incoming/outgoing links here. Apply the
+  "parallel divide" function for conjunctions using the *hub scores* of the
+  nodes.
+- Choose a link (with a given weight). It actually doesn't matter whether the
+  link goes in or out; unlike SALSA, we don't need to alternate.
+- Repeat for an arbitrary number of steps (probability *p* of quitting),
+  and for each node.
+- The hub score is the number of backward steps you took into a node. The
+  authority score is the number of forward steps you took into a node.
+- After running a walk from each node, update the hub scores for conjunctions.
+  Then repeat.
+
+Scale invariance:
+
+- All hub scores start at 1/n, arbitrarily.
+- When calculating conjunctions, use (my score || other score) / (my
+  score), which puts them on a scale from 0 to 1. For a 2-node conjunction,
+  that's (other / (me + other)).
+
+TODO: Reduce this to a matrix equation and try to show that it converges.
+
+networkx code for reference:
+    try:
+        import scipy.sparse
+    except ImportError:
+        raise ImportError(\
+            "pagerank_scipy() requires SciPy: http://scipy.org/")
+    if nodelist is None:
+        nodelist=G.nodes()
+    M=nx.to_scipy_sparse_matrix(G,nodelist=nodelist)
+    (n,m)=M.shape # should be square
+    S=scipy.array(M.sum(axis=1)).flatten()
+    index=scipy.where(S<>0)[0]
+    for i in index:
+        M[i,:]*=1.0/S[i]
+    x=scipy.ones((n))/n  # initial guess
+    dangle=scipy.array(scipy.where(M.sum(axis=1)==0,1.0/n,0)).flatten()
+    i=0
+    while True: # power iteration: make up to max_iter iterations
+        xlast=x
+        x=alpha*(x*M+scipy.dot(dangle,xlast))+(1-alpha)*xlast.sum()/n
+        # check convergence, l1 norm            
+        err=scipy.absolute(x-xlast).sum()
+        if err < n*tol:
+            break
+        if i>max_iter:
+            raise NetworkXError(\
+        "pagerank: power iteration failed to converge in %d iterations."%(i+1))
+        i+=1
+    centrality=dict(zip(G.nodes(),x))
+    return centrality
