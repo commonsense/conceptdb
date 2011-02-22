@@ -437,10 +437,9 @@ class ConceptDBHandler(BaseHandler):
 
         if context == "None":
             context = None
-#        #TODO: uncomment to take into account user
+            
         if User.objects.get(username=user).check_password(password):
             #the user's password is correct.  Get their reason and add
-            
             try:
                 user_reason = Reason.objects.get(target=dataset + '/contributor/' + user)
             except DoesNotExist:

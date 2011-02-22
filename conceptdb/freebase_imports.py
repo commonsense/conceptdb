@@ -20,7 +20,7 @@ class MQLQuery():
     #query = {}
     
     # list of properties in every freebase object
-    skip_props = ['attribution', 'creator', 'guid', 'key', 'mid', 'permission', 'search', 'timestamp']
+    skip_props = ['attribution', 'creator', 'guid', 'mid', 'permission', 'search', 'timestamp']
     
     
     def __init__(self, query_args, result_args, skip_props=[]):
@@ -126,11 +126,9 @@ class MQLQuery():
                         concepts = [[results['id'],nameval],[concept['id'],concept['name']['value']]]
                 
                 if nameval.endswith('s'):
-                    print 'make assertion, REL: '+str(['/rel/freebase/%s'%property, 'have %s'%property])+', CONCEPTS: '+str(concepts)
                     a = MQLQuery.make_assertion(dataset, ['/rel/freebase/%s'%property, 'have %s'%property], concepts , user, polarity, context)
                 else:
                     a = MQLQuery.make_assertion(dataset, ['/rel/freebase/%s'%property, 'has %s'%property], concepts , user, polarity, context)
-                    print 'make assertion, REL: '+str(['/rel/freebase/%s'%property, 'has %s'%property])+', CONCEPTS: '+str(concepts)
                 returnlist.append(a.serialize())
         
         return returnlist
@@ -157,25 +155,18 @@ class MQLQuery():
         
         
         for searchterm in self.result_args:
-            print searchterm
             query[0][searchterm]={}
             try:    
                 results = mss.mqlread(query)
-                print 'Searchterm is: '+searchterm
-                print results[0][searchterm]
                 try:
-                    print results[0][searchterm]['value']
                     concepts = [[self.query_args['id'],nameval],[results[0][searchterm]['id'],results[0][searchterm]['value']]]
                 except KeyError:
-                    print results[0][searchterm]['name']
                     concepts = [[self.query_args['id'],nameval],[results[0][searchterm]['id'],results[0][searchterm]['name']]]
                 
                 if nameval.endswith('s'):
-                    print 'make assertion, REL: '+str(['/rel/freebase/%s'%searchterm, 'have %s'%searchterm])+', CONCEPTS: '+str(concepts)
                     a = MQLQuery.make_assertion(dataset, ['/rel/freebase/%s'%searchterm, 'have %s'%searchterm], concepts , user, polarity, context)
                 else:
                     a = MQLQuery.make_assertion(dataset, ['/rel/freebase/%s'%searchterm, 'has %s'%searchterm], concepts , user, polarity, context)
-                    print 'make assertion, REL: '+str(['/rel/freebase/%s'%searchterm, 'has %s'%searchterm])+', CONCEPTS: '+str(concepts)
                 
                 returnlist.append(a.serialize())
         
@@ -184,22 +175,14 @@ class MQLQuery():
                     query[0][searchterm]=[{}]
                     results = mss.mqlread(query)
                     for result in results[0][searchterm]:
-                        print 'Searchterm is: '+searchterm
-                        print result
                         try:
-                            print result['name']
-                            print result['id']
                             concepts = [[self.query_args['id'],nameval],[result['id'],result['name']]]
                         except KeyError:
-                            print result['value']
-                            print result['id']
                             concepts = [[self.query_args['id'],nameval],[result['id'],result['value']]]
                         if nameval.endswith('s'):
-                            print 'make assertion, REL: '+str(['/rel/freebase/%s'%searchterm, 'have %s'%searchterm])+', CONCEPTS: '+str(concepts)
                             a = MQLQuery.make_assertion(dataset, ['/rel/freebase/%s'%searchterm, 'have %s'%searchterm], concepts , user, polarity, context)
                         else:
                             a = MQLQuery.make_assertion(dataset, ['/rel/freebase/%s'%searchterm, 'has %s'%searchterm], concepts , user, polarity, context)
-                            print 'make assertion, REL: '+str(['/rel/freebase/%s'%searchterm, 'has %s'%searchterm])+', CONCEPTS: '+str(concepts)
                         returnlist.append(a.serialize())
                 
                 elif str(me1.args).rfind('/api/status/error/mql/type') is not -1:
