@@ -54,10 +54,13 @@ def lookup_assertion_expressions(assertion_id, start = 0, limit = 10):
     return _get_json_with_queries('assertionexpressions?id=' + str(assertion_id) + '&start=' + str(start) + '&limit=' + str(limit))
 
 def add_assertion(user, password, dataset, relation, concepts, polarity=1, context='None'):
-    return _get_post_json('assertionmake', [('dataset', dataset), ('rel', relation), ('concepts', concepts), ('polarity', str(polarity)), ('context', context)])
-# ('user', user), ('password', password), 
-def add_assertion_from_freebase(user, password, dataset, query_args, result_args, polarity=1, context='None'):
+    return _get_post_json('assertionmake', [('user', user), ('password', password), ('dataset', dataset), ('rel', relation), ('concepts', concepts), ('polarity', str(polarity)), ('context', context)])
+
+def import_from_freebase(user, password, dataset, query_args, result_args, polarity=1, context='None'):
     return _get_post_json('freebaseimport', [('user', user), ('password', password), ('dataset', dataset), ('args', query_args), ('results', result_args), ('polarity', str(polarity)), ('context', context)])
+
+def full_import_from_freebase(user, password, dataset, query_args, result_args, polarity=1, context='None'):
+    return _get_post_json('freebasefullimport', [('user', user), ('password', password), ('dataset', dataset), ('args', query_args), ('results', result_args), ('polarity', str(polarity)), ('context', context)])
 
 def vote_by_id(user, password, assertion_id, vote = '1'):
     return _get_post_json('assertionidvote', [('user', user), ('password', password), ('id', assertion_id), ('vote', vote)])

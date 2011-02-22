@@ -20,7 +20,7 @@ class MQLQuery():
     #query = {}
     
     # list of properties in every freebase object
-    skip_props = ['attribution', 'creator', 'guid', 'mid', 'permission', 'search', 'timestamp']
+    skip_props = ['attribution', 'creator', 'guid', 'mid', 'permission', 'key', 'search', 'timestamp']
     
     
     def __init__(self, query_args, result_args, skip_props=[]):
@@ -33,7 +33,7 @@ class MQLQuery():
     # relation object of type [relationid,relationname] (i.e. ['/rel/freebase/album, "has album"]
     # concepts object of type 
     @staticmethod
-    def make_assertion(dataset, relation, concepts, user, polarity=1, context=None):
+    def connect_to_sentence(dataset, relation, concepts, user, polarity=1, context=None):
         
         try:
             a = Assertion.objects.get(
@@ -66,7 +66,8 @@ class MQLQuery():
         mss = freebase.HTTPMetawebSession("http://api.freebase.com")
         results = mss.mqlread(query)
         for r in results[0]:
-            props.append(r)
+            if r not in MQLQuery.skip_props:
+                props.append(r)
         
         return props
     
@@ -94,6 +95,10 @@ class MQLQuery():
     
     # Called when the result field is simply '*'; returns and adds all fields associated with query
     def fb_entity(self, dset, user, polarity=1, context=None):
+        ''' 
+        Called when the result field is '*'
+        '''
+        
         # create or get dataset
         try:
             dataset = Dataset.objects.get(name=dset, language='en')
@@ -108,10 +113,6 @@ class MQLQuery():
         if type(results)==list:
             results = results[0]
             
-        if 'name' in results.keys():
-            nameval = results['name']['value']
-        else:
-            nameval = results['id']
         
         returnlist = []
         
@@ -119,22 +120,32 @@ class MQLQuery():
         for property in [r for r in results if r not in self.skip_props and type(results[r])==list]:
             # Use properties to index concepts, and only use concepts with an explicit 'id' field
             for concept in [conc for conc in results[property] if 'id' in conc.keys()]:
-                if 'name' in concept.keys():
-                    try:
-                        concepts = [[results['id'],nameval],[concept['id'],concept['name']]]
-                    except:
-                        concepts = [[results['id'],nameval],[concept['id'],concept['name']['value']]]
-                
-                if nameval.endswith('s'):
-                    a = MQLQuery.make_assertion(dataset, ['/rel/freebase/%s'%property, 'have %s'%property], concepts , user, polarity, context)
-                else:
-                    a = MQLQuery.make_assertion(dataset, ['/rel/freebase/%s'%property, 'has %s'%property], concepts , user, polarity, context)
+                        
+                try:
+                    a = Assertion.objects.get(
+                        dataset=dataset.name,
+                        relation='/rel/freebase/has%s'%property.capitalize(),
+                        polarity=polarity,
+                        argstr=Assertion.make_arg_string([results['id'],concept['id']]),
+                        context=context
+                        )
+            
+                    a.add_support(dataset.name + '/contributor/' + user)
+                    
+                except DoesNotExist:
+                    
+                    a = Assertion.make(dataset.name, '/rel/freebase/has%s'%property.capitalize(), [results['id'],concept['id']])
+                            
+                            
                 returnlist.append(a.serialize())
         
         return returnlist
     
     # Called when results 
     def fb_entity_property(self, dset, polarity, context, user):
+        '''
+        Called when the result field is not '*'
+        '''
         # create or get dataset
         try:
             dataset = Dataset.objects.get(name=dset, language='en')
@@ -148,26 +159,28 @@ class MQLQuery():
         # start importing from freebase
         mss = HTTPMetawebSession("http://api.freebase.com")
         
-        try:
-            nameval = mss.mqlread([dict(query[0],**{'name':{}})])[0]['name']['value']
-        except:
-            nameval = self.query_args['id']
-        
-        
         for searchterm in self.result_args:
             query[0][searchterm]={}
             try:    
                 results = mss.mqlread(query)
+     
                 try:
-                    concepts = [[self.query_args['id'],nameval],[results[0][searchterm]['id'],results[0][searchterm]['value']]]
-                except KeyError:
-                    concepts = [[self.query_args['id'],nameval],[results[0][searchterm]['id'],results[0][searchterm]['name']]]
-                
-                if nameval.endswith('s'):
-                    a = MQLQuery.make_assertion(dataset, ['/rel/freebase/%s'%searchterm, 'have %s'%searchterm], concepts , user, polarity, context)
-                else:
-                    a = MQLQuery.make_assertion(dataset, ['/rel/freebase/%s'%searchterm, 'has %s'%searchterm], concepts , user, polarity, context)
-                
+                    a = Assertion.objects.get(
+                        dataset=dataset.name,
+                        relation='/rel/freebase/has%s'%searchterm.capitalize(),
+                        polarity=polarity,
+                        argstr=Assertion.make_arg_string([self.query_args['id'],results[0][searchterm]['id']]),
+                        context=context
+                        )
+            
+                    a.add_support(dataset.name + '/contributor/' + user)
+                    
+                except DoesNotExist:
+                    
+                    a = Assertion.make(dataset.name, '/rel/freebase/has%s'%searchterm.capitalize(), [self.query_args['id'],results[0][searchterm]['id']])
+                    
+                    a.add_support(dataset.name + '/contributor/' + user)
+                    
                 returnlist.append(a.serialize())
         
             except MetawebError as me1:
@@ -175,14 +188,24 @@ class MQLQuery():
                     query[0][searchterm]=[{}]
                     results = mss.mqlread(query)
                     for result in results[0][searchterm]:
+                                           
                         try:
-                            concepts = [[self.query_args['id'],nameval],[result['id'],result['name']]]
-                        except KeyError:
-                            concepts = [[self.query_args['id'],nameval],[result['id'],result['value']]]
-                        if nameval.endswith('s'):
-                            a = MQLQuery.make_assertion(dataset, ['/rel/freebase/%s'%searchterm, 'have %s'%searchterm], concepts , user, polarity, context)
-                        else:
-                            a = MQLQuery.make_assertion(dataset, ['/rel/freebase/%s'%searchterm, 'has %s'%searchterm], concepts , user, polarity, context)
+                            a = Assertion.objects.get(
+                                dataset=dataset.name,
+                                relation='/rel/freebase/has%s'%searchterm.capitalize(),
+                                polarity=polarity,
+                                argstr=Assertion.make_arg_string([self.query_args['id'],result['id']]),
+                                context=context
+                                )
+            
+                            a.add_support(dataset.name + '/contributor/' + user)
+                    
+                        except DoesNotExist:
+                    
+                            a = Assertion.make(dataset.name, '/rel/freebase/has%s'%searchterm.capitalize(), [self.query_args['id'],result['id']])
+                    
+                            a.add_support(dataset.name + '/contributor/' + user)
+                            
                         returnlist.append(a.serialize())
                 
                 elif str(me1.args).rfind('/api/status/error/mql/type') is not -1:
@@ -195,8 +218,37 @@ class MQLQuery():
         
             del query[0][searchterm]
         return returnlist
-            
+    
+    def fb_all(self, dset, polarity, context, user):
+            # create or get dataset
         
+        query = [self.query_args]
+        
+        returnlist = []
+        
+        if 'type' in self.query_args.keys():
+            pass
+        else:
+            # start with all of the immediate properties of the id
+            returnlist = self.fb_entity(dset, user, polarity, context)
+            
+            # add all of the properties including possible other query values
+            for property in MQLQuery.view_props(self.query_args):
+                if property == 'type':
+                    for value in MQLQuery.view_entities(self.query_args, property):
+                        query[0][property] = value
+                        print 'QUERY IS '+str(query)
+                        for a in self.fb_entity(dset, polarity, context, user):
+                            returnlist.append(a)
+                    
+                        del query[0][property]
+                else:
+                    # TODO: figure out what to do for other queries, that have multiple results
+                    # but no specific result term
+                    pass 
+        
+        return returnlist
+
       
     def check_arguments(self):
         #superficial check, doesn't check for metaweb errors
@@ -221,15 +273,18 @@ class MQLQuery():
         return mqlquery
     
     
-    def get_results(self, dataset, polarity=1, context=None, user=None):
+    def get_results(self, dataset, polarity=1, context=None, user=None, import_all=False):
         
         # verify that query doesn't have errors with specific type
         if self.check_arguments() == False:
             print 'Arguments: '+str(self.query_args)+ ' were not compatible with query type: '+self.query_type
             return
         
-        if self.result_args==['*']:
-            return self.fb_entity(dataset, polarity, context, user)
+        if import_all:
+            return self.fb_all(dataset, polarity, context, user)
         else:
-            return self.fb_entity_property(dataset, polarity, context, user)
+            if self.result_args==['*']:
+                return self.fb_entity(dataset, polarity, context, user)
+            else:
+                return self.fb_entity_property(dataset, polarity, context, user)
     

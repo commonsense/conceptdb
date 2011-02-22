@@ -81,6 +81,11 @@ class ConceptDBHandler(BaseHandler):
         elif obj_url.startswith('/freebaseimport'):
             return self.freebaseImport(request, obj_url)
         
+        #If freebasefullimport, does queries freebase with all of the possible types, and 
+        # imports them all
+        elif obj_url.startswith('/freebasefullimport'):
+            return self.freebaseFullImport(request, obj_url)
+        
         # else return bad request
         return rc.BAD_REQUEST
 
@@ -401,6 +406,9 @@ class ConceptDBHandler(BaseHandler):
     def freebaseImport(self, request, obj_url):
         #TODO: import a freebase entity with MQL query, given id
         """
+        Imports only one layer deep (i.e. all of the types associated with id, 
+        or all of the properties of an id with a given type
+        
         This method takes a json object or dictionary of query arguments, which 
         may include id, type, guid, mid, timestamp, name, or any keyword found 
         in the freebase schema. Using another json object to represent what to look 
@@ -450,7 +458,7 @@ class ConceptDBHandler(BaseHandler):
         
         mqlquery = MQLQuery.make(query_args, result_args)
         
-        assertions_from_freebase = mqlquery.get_results(dataset, polarity, context, user)
+        assertions_from_freebase = mqlquery.get_results(dataset, polarity, context, user, False)
         
         return '{imported assertions: '+str(assertions_from_freebase)+'}'
     
@@ -493,4 +501,47 @@ class ConceptDBHandler(BaseHandler):
         property = request.GET['property']
         
         return '{ The property %s can be assigned the following entities: %s}'%(property,str(MQLQuery.view_entities(query_args, property)))
+    
+    def freebaseFullImport(self, request, obj_url):
+        '''
+        Import ALL URIs associated with a given freebase URI
+        freebase URI field : 'id'
         
+        Basic operation: if only id given, does a separate import for all of the 
+        properties of each possible type. if type given, only do an import for that layer.
+        if other property given, do that same query with every possible type
+        '''
+        dataset = request.POST['dataset']
+        
+        query_args_str = request.POST['args']
+        query_args={}
+        for arg in query_args_str.split(','):
+            query_args[arg.split(':')[0]]=arg.split(':')[1]
+
+        result_args_str = request.POST['results']
+        result_args = result_args_str.split(',')
+        
+            
+        polarity = int(request.POST.get('polarity','1'))
+        context = request.POST.get('context','None')
+        user = request.POST['user']
+        password = request.POST['password']
+
+        if context == "None":
+            context = None
+            
+        if User.objects.get(username=user).check_password(password):
+            #the user's password is correct.  Get their reason and add
+            try:
+                user_reason = Reason.objects.get(target=dataset + '/contributor/' + user)
+            except DoesNotExist:
+                return rc.FORBIDDEN
+        else:
+            #incorrect password
+            return rc.FORBIDDEN
+        
+        mqlquery = MQLQuery.make(query_args, result_args)
+        
+        assertions_from_freebase = mqlquery.get_results(dataset, polarity, context, user, True)
+        
+        return '{imported assertions: '+str(assertions_from_freebase)+'}'
