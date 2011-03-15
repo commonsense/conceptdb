@@ -4,6 +4,7 @@ from piston.authentication import HttpBasicAuthentication
 from conceptdb.assertion import Assertion, Sentence, Expression
 from conceptdb.metadata import Dataset
 from conceptdb.justify import Reason
+from conceptdb.freebase_imports import MQLQuery
 from conceptdb import ConceptDBDocument
 import conceptdb
 from mongoengine.queryset import DoesNotExist
@@ -48,23 +49,44 @@ class ConceptDBHandler(BaseHandler):
             return self.expressionLookup(obj_url)
         elif obj_url.startswith('/assertionexpressions'):
             return self.assertionExpressionLookup(request, obj_url)
+        elif obj_url.startswith('/freebaselookupprops'):
+            return self.freebaseLookupProps(request, obj_url)
+        elif obj_url.startswith('/freebaselookupentities'):
+            return self.freebaseLookupEntities(request, obj_url)
         #if none of the above, return bad request.  
         return rc.BAD_REQUEST
 
     @throttle(200,60,'update')
     def create(self, request, obj_url):
-        #can start with /assertionmake or /assertionvote.  If assertionmake,
-        #looks for the assertion.  If can't find, makes it and contributes
-        #a positive vote.  If it can find it, contribute a positive vote
-        #and inform the user
-
-        #if assertionvote, looks for the assertion and votes on it.  If it can't find
-        #it nothing happens
+        ''
+        #can start with /assertionmake, /assertionvote, /freebaseimport.  
+        
         obj_url = '/' + obj_url
+        
+        #If assertionmake,looks for the assertion.  If can't find, makes 
+        #it and contributes a positive vote.  If it can find it, contribute 
+        #a positive vote and inform the user.
         if obj_url.startswith('/assertionmake'):
             return self.assertionMake(request, obj_url)
+        
+        #If assertionvote, looks for the assertion and votes on it.  If it can't find
+        #it nothing happens.
         elif obj_url.startswith('/assertionvote') or obj_url.startswith('/assertionidvote'):
             return self.assertionVote(request, obj_url)
+        
+        #If freebaseimport, queries freebase for entities to be added. If it 
+        #finds entities, adds the entire array of entities. If the query returns None,
+        #nothing happens. If the entity to be added exists in assertion objects, 
+        #contribute a positive vote and inform the user.
+        elif obj_url.startswith('/freebaseimport'):
+            return self.freebaseImport(request, obj_url)
+        
+        #If freebasefullimport, does queries freebase with all of the possible types, and 
+        # imports them all
+        elif obj_url.startswith('/freebasefullimport'):
+            return self.freebaseFullImport(request, obj_url)
+        
+        # else return bad request
         return rc.BAD_REQUEST
 
     def datasetLookup(self,obj_url):
@@ -80,7 +102,6 @@ class ConceptDBHandler(BaseHandler):
         """Method called to look up an assertion by its id number.  Accessed
         by going to URL /api/assertion/{id}.  Returns a serialized version 
         of the assertion."""
-
         try:
             return Assertion.get(obj_url.replace('/assertion/', '')).serialize()    
         except DoesNotExist:
@@ -244,13 +265,14 @@ class ConceptDBHandler(BaseHandler):
 
         if context == "None":
             context = None
+        # TODO: uncomment to take into account user and password?
         if User.objects.get(username=user).check_password(password):
             #the user's password is correct.  Get their reason and add
             
             try:
-              user_reason = Reason.objects.get(target=dataset + '/contributor/' + user)
+                user_reason = Reason.objects.get(target=dataset + '/contributor/' + user)
             except DoesNotExist:
-              return rc.FORBIDDEN
+                return rc.FORBIDDEN
         else:
             #incorrect password
             return rc.FORBIDDEN
@@ -380,3 +402,146 @@ class ConceptDBHandler(BaseHandler):
             return rc.NOT_FOUND
 
         return "{expressions: " + str(expressions) + "}"
+    
+    def freebaseImport(self, request, obj_url):
+        #TODO: import a freebase entity with MQL query, given id
+        """
+        Imports only one layer deep (i.e. all of the types associated with id, 
+        or all of the properties of an id with a given type
+        
+        This method takes a json object or dictionary of query arguments, which 
+        may include id, type, guid, mid, timestamp, name, or any keyword found 
+        in the freebase schema. Using another json object to represent what to look 
+        for in the results (specific keywords representing certain field, or '*' representing 
+        all fields), does an MQL query, makes all results into assertions, and returns
+        the result set. 
+        query_args: id:someid,type:sometype...
+        result_args: name:somename,*:{}
+        
+        Accessed by going to the URL
+        /api/assertionmake?dataset={dataset}&query_args={arg1:val1,arg2:val2,...}&result_args=
+        {arg1,arg2,arg3,...}&polarity={polarity}&context={context}&user={user}&password={password}
+        
+        TODO: maybe include details about keywords, details about result_args field
+        
+        tested:
+        curl --data "dataset=/data/test&args=id:/en/the_beatles&results=*&polarity=1&context=None&user=nholm&password=something" "http://127.0.0.1:8000/api/freebaseimport"
+        """
+        dataset = request.POST['dataset']
+        
+        query_args_str = request.POST['args']
+        query_args={}
+        for arg in query_args_str.split(','):
+            query_args[arg.split(':')[0]]=arg.split(':')[1]
+
+        result_args_str = request.POST['results']
+        result_args = result_args_str.split(',')
+        
+            
+        polarity = int(request.POST.get('polarity','1'))
+        context = request.POST.get('context','None')
+        user = request.POST['user']
+        password = request.POST['password']
+
+        if context == "None":
+            context = None
+            
+        if User.objects.get(username=user).check_password(password):
+            #the user's password is correct.  Get their reason and add
+            try:
+                user_reason = Reason.objects.get(target=dataset + '/contributor/' + user)
+            except DoesNotExist:
+                return rc.FORBIDDEN
+        else:
+            #incorrect password
+            return rc.FORBIDDEN
+        
+        mqlquery = MQLQuery.make(query_args, result_args)
+        
+        assertions_from_freebase = mqlquery.get_results(dataset, polarity, context, user, False)
+        
+        return '{imported assertions: '+str(assertions_from_freebase)+'}'
+    
+    def freebaseLookupProps(self, request, obj_url):
+        '''
+        Given a fb query, looks up all of the properties associated with that object. 
+        These properties can become result_args fields.
+        
+        Format: /api/freebaselookupprops?args={arg1:val1,arg2:val1,...}
+        
+        tested:
+        curl "http://127.0.0.1:8000/api/freebaselookupprops?args=id:/en/the_beatles"
+        curl "http://127.0.0.1:8000/api/freebaselookupprops?args=id:/en/the_beatles,type:/music/artist"
+        
+        '''
+        
+        query_args={}
+        query_args_str = request.GET['args']
+        for a in query_args_str.split(','):
+            query_args[a.split(':')[0]]=a.split(':')[1]
+        
+        return '{ The result set has the following properties: '+str(MQLQuery.view_props(query_args))+'}'
+
+    def freebaseLookupEntities(self, request, obj_url):
+        '''
+        Given a fb query, and a property, looks up all of the possible values that can 
+        be inserted for that property, i.e. type='/common/topic','/music/artist', ...
+        
+        Format: /api/freebaselookupentities?args={arg1:val1,arg2:val1,...}&property={prop}
+        
+        tested:
+        curl "http://127.0.0.1:8000/api/freebaselookupentities?args=id:/en/the_beatles&property=type"
+        '''
+        
+        query_args={}
+        query_args_str = request.GET['args']
+        for a in query_args_str.split(','):
+            query_args[a.split(':')[0]]=a.split(':')[1]
+        
+        property = request.GET['property']
+        
+        return '{ The property %s can be assigned the following entities: %s}'%(property,str(MQLQuery.view_entities(query_args, property)))
+    
+    def freebaseFullImport(self, request, obj_url):
+        '''
+        Import ALL URIs associated with a given freebase URI
+        freebase URI field : 'id'
+        
+        Basic operation: if only id given, does a separate import for all of the 
+        properties of each possible type. if type given, only do an import for that layer.
+        if other property given, do that same query with every possible type
+        '''
+        dataset = request.POST['dataset']
+        
+        query_args_str = request.POST['args']
+        query_args={}
+        for arg in query_args_str.split(','):
+            query_args[arg.split(':')[0]]=arg.split(':')[1]
+
+        result_args_str = request.POST['results']
+        result_args = result_args_str.split(',')
+        
+            
+        polarity = int(request.POST.get('polarity','1'))
+        context = request.POST.get('context','None')
+        user = request.POST['user']
+        password = request.POST['password']
+
+        if context == "None":
+            context = None
+            
+        if User.objects.get(username=user).check_password(password):
+            #the user's password is correct.  Get their reason and add
+            try:
+                user_reason = Reason.objects.get(target=dataset + '/contributor/' + user)
+            except DoesNotExist:
+                return rc.FORBIDDEN
+        else:
+            #incorrect password
+            return rc.FORBIDDEN
+        
+        mqlquery = MQLQuery.make(query_args, result_args)
+        
+        assertions_from_freebase = mqlquery.get_results(dataset, polarity, context, user, True)
+        
+        return '{imported assertions: '+str(assertions_from_freebase)+'}'

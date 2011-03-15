@@ -5,7 +5,7 @@ from conceptdb.metadata import Dataset
 from conceptdb.util import outer_iter
 from conceptdb import ConceptDBDocument
  
-BLANK = '*'
+#BLANK = '*'
 class Assertion(ConceptDBJustified, mon.Document):
     dataset = mon.StringField(required=True) # reference to Dataset
     relation = mon.StringField(required=True) # concept ID

@@ -8,8 +8,8 @@ def test_assertion():
     # fresh start
     Dataset.drop_collection()
     Assertion.drop_collection() 
+    
     #create test dataset
-
     dataset = Dataset.create(language = 'en', name = '/data/test')
     
     #make a test assertion
@@ -60,4 +60,6 @@ def test_assertion():
     #clean up
     Dataset.drop_collection()
     Assertion.drop_collection() 
+    
+test_assertion()
  
