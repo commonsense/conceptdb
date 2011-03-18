@@ -3,13 +3,12 @@ from log import Log
 import mongoengine as mon
 from mongoengine.queryset import DoesNotExist, QuerySet
 from pymongo.objectid import ObjectId
+import pymongo
 import db_config
 import json
 
-def connect_to_mongodb(dbname='conceptdb',
-                       host=db_config.MONGODB_HOST,
-                       username=db_config.MONGODB_USER,
-                       password=db_config.MONGODB_PASSWORD):
+def connect_to_mongodb(dbname='conceptdb', host=None,
+                       username=None, password=None):
     """
     Connect to the given MongoDB database. By default, it will connect to
     'conceptdb' with the settings given in db_config.py, but any of these
@@ -21,9 +20,51 @@ def connect_to_mongodb(dbname='conceptdb',
     The majority of the methods in csc.conceptdb will not work until
     after you have used connect_to_mongodb successfully.
     """
+    host = host or db_config.MONGODB_HOST
+    username = username or db_config.MONGODB_USER
+    password = password or db_config.MONGODB_PASSWORD
     _db = mon.connect(dbname, host=host, username=username, password=password)
     return _db
 connect = connect_to_mongodb
+
+def create_mongodb(dbname, host=None,
+                   username=None, password=None):
+    """
+    Creates a new database. The username and password you use must have
+    admin access. This username/password combination will also be given
+    access to the new database.
+    
+    If the database already exists, all that will happen is that your user
+    gets access to the database.
+
+    Returns a connection to the database. So you could even use this as an
+    unwieldy replacement for connect_to_mongodb, which may be useful in tests
+    that frequently have to create databases.
+    """
+    host = host or db_config.MONGODB_HOST
+    username = username or db_config.MONGODB_USER
+    password = password or db_config.MONGODB_PASSWORD
+    
+    conn = pymongo.Connection(host=host)
+    conn.admin.authenticate(username, password)
+    conn[dbname].add_user(username, password)
+
+    return connect_to_mongodb(dbname, host, username, password)
+
+IMPORTANT_DATABASES = ['conceptdb', 'admin']
+def drop_mongodb(dbname, host=None, username=None, password=None):
+    """
+    Deletes the database with a given name. Requires admin access.
+    """
+    if dbname in IMPORTANT_DATABASES:
+        raise ValueError("I'm sorry, Dave, I can't let you do that.")
+    host = host or db_config.MONGODB_HOST
+    username = username or db_config.MONGODB_USER
+    password = password or db_config.MONGODB_PASSWORD
+    
+    conn = pymongo.Connection(host=host)
+    conn.admin.authenticate(username, password)
+    conn.drop_database(dbname)
 
 class JSONScrubber(json.JSONEncoder):
     def _iterencode_dict(self, dct, markers=None):
