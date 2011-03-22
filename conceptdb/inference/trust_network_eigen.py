@@ -76,10 +76,8 @@ class TrustNetwork(object):
         coldiag = make_diag(colsums)
         self._transition_matrix = (csr_matrix * coldiag).tocsr()
         self._transition_matrix_T = self._transition_matrix.T.tocsr()
-        self._final_matrix = (rowdiag * self._fast_matrix).tocsr()
+        self._final_matrix = (self._fast_matrix).tocsr()
         self._final_matrix_T = (coldiag * self._fast_matrix.T).tocsr()
-
-        self._fast_matrix_up = (coldiag * self._fast_matrix.T).tocsr()
 
     def make_fast_conjunctions(self):
         csr_conjunctions = self._node_conjunctions.tocsr()
@@ -92,7 +90,7 @@ class TrustNetwork(object):
         self._fast_conjunctions = make_diag(scale_vec) * csr_conjunctions
 
     def get_matrices(self):
-        if self._fast_matrix_up is None:
+        if self._final_matrix is None:
             self.make_fast_matrix()
         return self._transition_matrix_T, self._transition_matrix
 
@@ -233,9 +231,29 @@ def demo():
     bn.add_edge('B', 'G', -1.0)
     bn.make_fast_matrix()
     bn.make_fast_conjunctions()
-    results = bn.spreading_activation(np.ones((len(bn.nodes),)), root='root')
-    print results
     return bn
+
+def random_graph():
+    import random
+    bn = TrustNetwork()
+    nodes = ['n%d' % i for i in xrange(100)]
+    bn.add_nodes(nodes)
+    bn.make_matrices()
+    for node in nodes:
+        for i in xrange(10):
+            bn.add_conjunction(random.sample(nodes, 3), nodes[i], 1)
+        for i in xrange(10, 20):
+            bn.add_conjunction(random.sample(nodes, 2), nodes[i], 1)
+        for i in xrange(200):
+            source = random.choice(nodes)
+            target = random.choice(nodes[20:])
+            bn.add_edge(source, target, random.choice((1,-1)))
+
+    bn.make_fast_matrix()
+    bn.make_fast_conjunctions()
+    
+    return bn
+
 
 def run_conceptnet(filename='conceptdb.graph'):
     bn = graph_from_file(filename)

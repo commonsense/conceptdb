@@ -184,7 +184,7 @@ def run_eigen(graph, tol=1e-6):
     return graph
 
 def demo():
-    graph = load_graph('test.graph')
+    graph = load_graph('graphs/test.graph')
     run_eigen(graph)
     return graph
 
