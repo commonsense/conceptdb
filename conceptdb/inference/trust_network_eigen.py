@@ -74,10 +74,10 @@ class TrustNetwork(object):
         colsums = 1.0 / (EPS + (abs_matrix).sum(axis=0))
         colsums = np.asarray(colsums)[0,:]
         coldiag = make_diag(colsums)
-        self._transition_matrix = (csr_matrix * coldiag).tocsr()
+        self._transition_matrix = (csr_matrix).tocsr()
         self._transition_matrix_T = self._transition_matrix.T.tocsr()
         self._final_matrix = (self._fast_matrix).tocsr()
-        self._final_matrix_T = (coldiag * self._fast_matrix.T).tocsr()
+        self._final_matrix_T = (self._fast_matrix.T).tocsr()
 
     def make_fast_conjunctions(self):
         csr_conjunctions = self._node_conjunctions.tocsr()
