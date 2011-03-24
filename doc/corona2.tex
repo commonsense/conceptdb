@@ -1,0 +1,83 @@
+\documenttype{article}
+
+\title{Corona redesign -- March 2011}
+\author{Rob Speer}
+
+\begin{document}
+\maketitle
+
+CORONA did not work as planned. Although I didn't discover this in time to
+finish the paper, its emergent effects on large networks turned out to
+undesirable.  For example: either (without normalization) agents that cast a
+lot of votes accumulate lots of power, or (with normalization) every node can
+cause huge swings of reliability in its sparsely-connected neighbors.
+
+On real ConceptNet data, the first case leads to the unreliable Verbosity
+having thousands of times more influence than other knowledge sources, and the
+second case means that good critics manage to negate themselves out of
+existence.
+
+The main sources of these problems were:
+
+- Influence congregates in highly-connected areas of the graph. When influence
+  is the same thing as reliability, there is no meaningful global scale for
+  reliability.
+- Negations require subverting the mathematical machinery that made the system
+  work in the first place. The combined effect of many negations can send the
+  model into Bizarro Minus World, yielding results that make the opposite of
+  sense.
+- Negations also created "retribution": if node A downvotes node B, that is the
+  same as node B downvoting node A. If a node is a person, that person would
+  never want to downvote anything.
+
+\section{Weighted averaging}
+
+The key redesign I have in mind is to separate the vote that is being cast from
+the strength of that vote. These "votes" are assertions of how reliable node A
+thinks node B should be, from 0 to BIGNUM. A vote of 0 means you think it's
+unreliable. A vote of BIGNUM means you think it's reliable enough to stake your
+own reliability on. Votes in between are also possible, of course.
+
+I say BIGNUM because it should be possible to cast arbitrarily large votes
+without breaking the system, although practical implementations might want to
+put a cap at some nice number like 100.
+
+These votes are averaged together (on a bit of an odd scale where BIGNUMs do
+not dominate, which I will justify in a bit). The votes are also *weighted*
+according to the reliability of the nodes casting them.
+
+Because of this averaging process, negative reliability is no longer necessary.
+Unreliability is now indicated by values near 0.
+
+Terminology: we have nodes with different amounts of reliability casting votes
+about different amounts of reliability. Let us refer to these as the *node
+weight* and the *edge weight* respectively. Then, the reliability of a node
+comes from two sources:
+
+- The average edge weight of its predecessors, weighted by their node weight
+  (How reliable do other nodes think you are?)
+- The average node weight of its successors, weighted by their edge weight
+  (When you say whether other nodes are reliable, how good is your word?)
+
+Notice the exchange of "node" and "edge" there: these effects are dual to each
+other. 
+
+Suppose node A upvotes node B (says that B should have high reliability). Node
+B will eventually send back a dual message about how good this vote was, based
+on the score node B ends up receiving, and this will be averaged into the
+reliability of node A. This is the behavior we want in a very common case:
+agreement leads to reliability.
+
+Now suppose that node A downvotes node C, saying that C should have reliability
+0. C does not drag down A with it, because the dual message from node C has
+*weight* 0.
+
+\subsection{The Weighted Enharmonic Mean}
+
+Defining how this averaging works requires defining an operation called the
+"enharmonic mean". This operation is vaguely reminiscent of the harmonic mean,
+but has very different properties. It derives from the same equations that
+related the previous CORONA's disjunctions to fuzzy logic disjunctions, by
+mapping CORONA's [0, inf) scale to fuzzy logic's [0, 1] scale.
+
+\end{document}

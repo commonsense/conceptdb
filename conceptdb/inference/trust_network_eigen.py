@@ -63,21 +63,21 @@ class TrustNetwork(object):
 
     def make_fast_matrix(self):
         self._fast_matrix = self._node_matrix.tocsr()
-        #for i in xrange(self._node_matrix.shape[0]):
-        #    self._node_matrix[0, i] += EPS
-        #    self._node_matrix[i, 0] += EPS
+        for i in xrange(self._node_matrix.shape[0]):
+            self._node_matrix[0, i] += 1.0/self._node_matrix.shape[0]
+            self._node_matrix[i, 0] += 1.0/self._node_matrix.shape[0]
         csr_matrix = self._node_matrix.tocsr()
-        abs_matrix = np.abs(csr_matrix)
-        rowsums = 1.0 / (EPS + (abs_matrix).sum(axis=1))
+        abs_matrix = csr_matrix.multiply(csr_matrix)
+        rowsums = np.sqrt(1.0 / (EPS + (abs_matrix).sum(axis=1)))
         rowsums = np.asarray(rowsums)[:,0]
         rowdiag = make_diag(rowsums)
-        colsums = 1.0 / (EPS + (abs_matrix).sum(axis=0))
+        colsums = np.sqrt(1.0 / (EPS + (abs_matrix).sum(axis=0)))
         colsums = np.asarray(colsums)[0,:]
         coldiag = make_diag(colsums)
-        self._transition_matrix = (csr_matrix).tocsr()
+        self._transition_matrix = (csr_matrix * coldiag).tocsr()
         self._transition_matrix_T = self._transition_matrix.T.tocsr()
-        self._final_matrix = (self._fast_matrix).tocsr()
-        self._final_matrix_T = (self._fast_matrix.T).tocsr()
+        self._final_matrix = (self._fast_matrix * coldiag).tocsr()
+        self._final_matrix_T = (coldiag * self._fast_matrix.T).tocsr()
 
     def make_fast_conjunctions(self):
         csr_conjunctions = self._node_conjunctions.tocsr()
