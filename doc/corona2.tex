@@ -1,6 +1,6 @@
-\documenttype{article}
+\documentclass{article}
 
-\title{Corona redesign -- March 2011}
+\title{Corona redesign --- March 2011}
 \author{Rob Speer}
 
 \begin{document}
@@ -18,22 +18,22 @@ second case means that good critics manage to negate themselves out of
 existence.
 
 The main sources of these problems were:
-
-- Influence congregates in highly-connected areas of the graph. When influence
+\begin{itemize}
+\item Influence congregates in highly-connected areas of the graph. When influence
   is the same thing as reliability, there is no meaningful global scale for
   reliability.
-- Negations require subverting the mathematical machinery that made the system
+\item Negations require subverting the mathematical machinery that made the system
   work in the first place. The combined effect of many negations can send the
   model into Bizarro Minus World, yielding results that make the opposite of
   sense.
-- Negations also created "retribution": if node A downvotes node B, that is the
+\item Negations also created ``retribution'': if node A downvotes node B, that is the
   same as node B downvoting node A. If a node is a person, that person would
   never want to downvote anything.
-
+\end{itemize}
 \section{Weighted averaging}
 
 The key redesign I have in mind is to separate the vote that is being cast from
-the strength of that vote. These "votes" are assertions of how reliable node A
+the strength of that vote. These ``votes'' are assertions of how reliable node A
 thinks node B should be, from 0 to BIGNUM. A vote of 0 means you think it's
 unreliable. A vote of BIGNUM means you think it's reliable enough to stake your
 own reliability on. Votes in between are also possible, of course.
@@ -50,17 +50,19 @@ Because of this averaging process, negative reliability is no longer necessary.
 Unreliability is now indicated by values near 0.
 
 Terminology: we have nodes with different amounts of reliability casting votes
-about different amounts of reliability. Let us refer to these as the *node
-weight* and the *edge weight* respectively. Then, the reliability of a node
-comes from two sources:
+about different amounts of reliability. Let us refer to these as the \emph{node
+weight} and the \emph{edge weight} respectively. Then, the reliability of a
+node comes from two sources:
 
-- The average edge weight of its predecessors, weighted by their node weight
+\begin{itemize}
+\item The average edge weight of its predecessors, weighted by their node weight
   (How reliable do other nodes think you are?)
-- The average node weight of its successors, weighted by their edge weight
+\item The average node weight of its successors, weighted by their edge weight
   (When you say whether other nodes are reliable, how good is your word?)
+\end{itemize}
 
-Notice the exchange of "node" and "edge" there: these effects are dual to each
-other. 
+Notice the exchange of ``node'' and ``edge'' there: these effects are dual to
+each other. 
 
 Suppose node A upvotes node B (says that B should have high reliability). Node
 B will eventually send back a dual message about how good this vote was, based
@@ -70,14 +72,57 @@ agreement leads to reliability.
 
 Now suppose that node A downvotes node C, saying that C should have reliability
 0. C does not drag down A with it, because the dual message from node C has
-*weight* 0.
+\emph{weight} 0.
 
 \subsection{The Weighted Enharmonic Mean}
 
 Defining how this averaging works requires defining an operation called the
-"enharmonic mean". This operation is vaguely reminiscent of the harmonic mean,
-but has very different properties. It derives from the same equations that
-related the previous CORONA's disjunctions to fuzzy logic disjunctions, by
-mapping CORONA's [0, inf) scale to fuzzy logic's [0, 1] scale.
+``enharmonic mean'' (I made this term up). The enharmonic mean is one case of
+the generalized $f$-mean, in which a set of numbers are passed through a
+function, averaged arithmetically, and then passed through the inverse
+function.
+
+The function $f$ here is the same function that related the previous CORONA's
+disjunctions to fuzzy logic disjunctions, by mapping CORONA's $[0, \infty)$
+scale to fuzzy logic's $[0, 1]$ scale bidirectionally.
+
+We now even have the advantage that the mapping does not break down from
+negative numbers being added to CORONA. This mapping is defined by:
+
+$$f(x) = \frac{x}{x+1} ; f^{-1}(y) = \frac{y}{1-y}$$
+
+The simple enharmonic mean of two positive values, $a_1$ and $a_2$, is:
+\begin{equation}
+EM(a_1, a_2) = f^{-1}\left(\frac{f(a_1) + f(a_2)}{2}\right)
+\end{equation}
+
+We obtain the weighted enharmonic mean by generalizing this to any number of
+values $\vec{a}$ with weights $\vec{w}$. Following the definition of the
+weighted $f$-mean:
+
+\begin{equation}
+WEM(\vec{a}, \vec{w}) = f^{-1}\left(
+  \frac{ \sum_i w_i f(a_i) } { \sum_i w_i }
+\right)
+\end{equation}
+
+\subsubsection{Examples of the enharmonic mean}
+\begin{eqnarray*}
+EM(0, 1) &=& 1/3\\
+EM(0, \infty) &=& 1\\
+EM(1, 2) &=& 7/5\\
+EM(2, 4) &=& 11/4\\
+EM(1, 100) &=& 301/103 \approx 2.92\\
+EM(1, \infty) &=& 3\\
+EM(0, a) &=& a/(a+2)\\
+EM(a, \infty) &=& (a+2)/a\\
+EM(1/a, 1/b) &=& 1/EM(a, b)
+\end{eqnarray*}
+
+Like most means, the enharmonic mean is symmetric, partitionable, monotonic,
+and self-distributive. Its output is bounded by the minimum and the maximum.
+However, it is not homogeneous: scaling all inputs by a factor does not scale
+the output by the same factor. This is actually desirable when allowing
+arbitrarily strong votes.
 
 \end{document}
