@@ -1,16 +1,19 @@
 \documentclass{article}
+\usepackage{palatino}
+\usepackage{fullpage}
 
-\title{Corona redesign --- March 2011}
+\title{CORONA redesign --- March 2011}
 \author{Rob Speer}
 
 \begin{document}
 \maketitle
 
-CORONA did not work as planned. Although I didn't discover this in time to
-finish the paper, its emergent effects on large networks turned out to
-undesirable.  For example: either (without normalization) agents that cast a
-lot of votes accumulate lots of power, or (with normalization) every node can
-cause huge swings of reliability in its sparsely-connected neighbors.
+CORONA, as I described it in my January AAAI submission, did not work as
+planned. Although I didn't discover this in time to finish the paper, its
+emergent effects on large networks turned out to undesirable.  For example:
+either (without normalization) agents that cast a lot of votes accumulate lots
+of power, or (with normalization) every node can cause huge swings of
+reliability in its sparsely-connected neighbors.
 
 On real ConceptNet data, the first case leads to the unreliable Verbosity
 having thousands of times more influence than other knowledge sources, and the
@@ -19,13 +22,13 @@ existence.
 
 The main sources of these problems were:
 \begin{itemize}
-\item Influence congregates in highly-connected areas of the graph. When influence
-  is the same thing as reliability, there is no meaningful global scale for
-  reliability.
-\item Negations require subverting the mathematical machinery that made the system
-  work in the first place. The combined effect of many negations can send the
-  model into Bizarro Minus World, yielding results that make the opposite of
-  sense.
+\item PageRank-style influence congregates in highly-connected areas of the
+  graph. When influence is the same thing as reliability, there is no
+  meaningful global scale for reliability.
+\item Negations require subverting the mathematical machinery that made the
+  system work in the first place. The combined effect of many negations can
+  send the model into Bizarro Minus World, yielding results that make the
+  opposite of sense.
 \item Negations also created ``retribution'': if node A downvotes node B, that is the
   same as node B downvoting node A. If a node is a person, that person would
   never want to downvote anything.
@@ -64,11 +67,11 @@ node comes from two sources:
 Notice the exchange of ``node'' and ``edge'' there: these effects are dual to
 each other. 
 
-Suppose node A upvotes node B (says that B should have high reliability). Node
-B will eventually send back a dual message about how good this vote was, based
-on the score node B ends up receiving, and this will be averaged into the
-reliability of node A. This is the behavior we want in a very common case:
-agreement leads to reliability.
+Suppose node A upvotes node B (says that B should have high reliability). A
+dual message comes back from node B about how good this vote was, based on the
+overall score node B gets, and this will be averaged into the reliability of
+node A. This is the behavior we want in a very common case: agreement leads to
+reliability.
 
 Now suppose that node A downvotes node C, saying that C should have reliability
 0. C does not drag down A with it, because the dual message from node C has
@@ -91,7 +94,7 @@ negative numbers being added to CORONA. This mapping is defined by:
 
 $$f(x) = \frac{x}{x+1} ; f^{-1}(y) = \frac{y}{1-y}$$
 
-The simple enharmonic mean of two positive values, $a_1$ and $a_2$, is:
+The unweighted enharmonic mean of two positive values, $a_1$ and $a_2$, is:
 \begin{equation}
 EM(a_1, a_2) = f^{-1}\left(\frac{f(a_1) + f(a_2)}{2}\right)
 \end{equation}
@@ -113,16 +116,61 @@ EM(0, \infty) &=& 1\\
 EM(1, 2) &=& 7/5\\
 EM(2, 4) &=& 11/4\\
 EM(1, 100) &=& 301/103 \approx 2.92\\
-EM(1, \infty) &=& 3\\
-EM(0, a) &=& a/(a+2)\\
-EM(a, \infty) &=& (a+2)/a\\
-EM(1/a, 1/b) &=& 1/EM(a, b)
+EM(1, \infty) &=& 3
+EM(0, a) &=& a/(a+2)
 \end{eqnarray*}
 
-Like most means, the enharmonic mean is symmetric, partitionable, monotonic,
-and self-distributive. Its output is bounded by the minimum and the maximum.
-However, it is not homogeneous: scaling all inputs by a factor does not scale
-the output by the same factor. This is actually desirable when allowing
-arbitrarily strong votes.
+\subsubsection{Properties of the enharmonic mean}
+The enharmonic mean has the properties of any generalized $f$-mean, including:
+
+\begin{itemize}
+\item Symmetric: $EM(a, b) = EM(b, a)$
+\item Fixed point: $EM(a, a) = a$
+\item Bounded: $\min(a, b) \leq EM(a, b) \leq \max(a, b)$
+\item Self-distributive: $EM(a, EM(b, c)) = EM(EM(a, b), EM(a, c))$
+\item Associative with multiplicity: $$EM(a, b, c) = EM(EM(a, b), EM(a, b), c)
+= EM(a, EM(b, c), EM(b, c))$$
+%\item Associative when weights are maintained:
+%\begin{eqnarray*}
+%WEM([a, b, c], [w_a, w_b, w_c]) &=& WEM([WEM([a, b], [w_a, w_b]), c], [w_a + w_b, w_c])\\
+%&=& WEM([a, WEM([b, c], [w_b, w_c])], [w_a, w_b + w_c])
+%\end{eqnarray*}
+\end{itemize}
+
+It has these additional properties:
+\begin{itemize}
+\item Monotonic: $b < c \rightarrow EM(a, b) < EM(a, c)$
+\item Reciprocal: $EM(1/a, 1/b) = 1/EM(a, b)$
+\end{itemize}
+
+Unlike the arithmetic, geometric, or harmonic mean, it is not {\em
+homogeneous}: multiplying its inputs by a scalar does not multiply its outputs
+by the same scalar.
+
+This means that $EM$ is not a linear function. But this is actually desirable
+when allowing arbitrarily strong votes -- see the example in which $EM(0,
+\infty) = 1$.
+
+\subsection{Never mind}
+The EM function actually isn't very good at all. We want to average linearly
+and bound votes to between 0 and 1.
+
+%% Simple examples
+
+% Bounded mode:
+% a votes 1 on c, b votes 1 on c
+% a = 1/2, b = 1/2, c = 1/2
+%   a <- 1/2, b <- 1/2, c <- 3/4
+%   a <- 5/8, b <- 5/8, c <- 7/9
+%   a <- .639, b <- .639, c <- .781
+%   a <- .640, b <- .640, c <- .781
+
+% a votes INF on c, b votes 0
+% a = 1, b = 1, c = 1
+%   a <- 1:INF, b <- 1:INF, c <- 0.5:3
+%   a <- 0.5:INF, b <- 1:INF, c <- 0.5:3
+%   a <- 0.5:INF, b <- 1:INF, c <- 0.25:2.5
+%   a <- 0.25:INF, b <- 1:INF, c <- 0.25:2.5
+%   a <- 0.25:INF, b <- 1:INF, c <- 0.125:2.25
 
 \end{document}
