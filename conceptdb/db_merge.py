@@ -209,11 +209,5 @@ def test_merge1(db1, db2):
     Dataset.drop_collection()
     Reason.drop_collection()
     
-        
-    
-    
-if __name__ == "__main__":
-    
-    test_merge1('test1', 'test2')
     
     

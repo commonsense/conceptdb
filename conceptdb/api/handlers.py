@@ -6,6 +6,7 @@ from conceptdb.metadata import Dataset
 from conceptdb.justify import Reason
 from conceptdb.freebase_imports import MQLQuery
 from conceptdb import ConceptDBDocument
+from conceptdb.db_merge import merge
 import conceptdb
 from mongoengine.queryset import DoesNotExist
 from mongoengine.base import ValidationError
@@ -85,6 +86,9 @@ class ConceptDBHandler(BaseHandler):
         # imports them all
         elif obj_url.startswith('/freebasefullimport'):
             return self.freebaseFullImport(request, obj_url)
+        
+        elif obj_url.startswith('/dbmerge'):
+            return self.db_merge(request, obj_url)
         
         # else return bad request
         return rc.BAD_REQUEST
@@ -427,6 +431,7 @@ class ConceptDBHandler(BaseHandler):
         tested:
         curl --data "dataset=/data/test&args=id:/en/the_beatles&results=*&polarity=1&context=None&user=nholm&password=something" "http://127.0.0.1:8000/api/freebaseimport"
         """
+        
         dataset = request.POST['dataset']
         
         query_args_str = request.POST['args']
@@ -458,9 +463,11 @@ class ConceptDBHandler(BaseHandler):
         
         mqlquery = MQLQuery.make(query_args, result_args)
         
-        assertions_from_freebase = mqlquery.get_results(dataset, polarity, context, user, False)
+        assertions_from_freebase = mqlquery.get_results(dataset, user, polarity, context, False)
         
-        return '{imported assertions: '+str(assertions_from_freebase)+'}'
+#        return '{imported assertions: '+str(assertions_from_freebase)+'}'
+        return '{Added/voted for %s assertions from freebase for %s}'%(str(len(assertions_from_freebase)),str(query_args))
+
     
     def freebaseLookupProps(self, request, obj_url):
         '''
@@ -542,6 +549,23 @@ class ConceptDBHandler(BaseHandler):
         
         mqlquery = MQLQuery.make(query_args, result_args)
         
-        assertions_from_freebase = mqlquery.get_results(dataset, polarity, context, user, True)
+        assertions_from_freebase = mqlquery.get_results(dataset, user, polarity, context, True)
         
-        return '{imported assertions: '+str(assertions_from_freebase)+'}'
+        return '{Added/voted for %s assertions from freebase for %s}'%(str(len(assertions_from_freebase)),str(query_args))
+    
+    def db_merge(self, request, obj_url):
+        
+        db1 = request.POST['database1']
+        db2 = request.POST['database2']
+        user = request.POST['user']
+        password = request.POST['password']
+        
+        if User.objects.get(username=user).check_password(password):
+            merge(db1, db2)
+
+        else:
+            #incorrect password
+            return rc.FORBIDDEN
+        
+        return "Merge successful."
+        
