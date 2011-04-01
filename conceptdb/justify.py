@@ -66,6 +66,8 @@ class ConceptDBJustified(ConceptDBDocument):
     their Justifications.
     """
     def add_support(self, reasons, weight=1.0):
+        self.confidence += weight
+        self.save()
         return Reason.make(self, reasons, weight, True)
 
     def add_oppose(self, reasons, weight=1.0):
