@@ -12,6 +12,8 @@ def test_merge1(db1, db2):
     DB1: No assertions
     DB2: Assertions 0-9
     '''
+    print "Running test 1: "
+    
     conceptdb.create_mongodb(db1)
     Assertion.drop_collection()
     Dataset.drop_collection()  
@@ -39,6 +41,8 @@ def test_merge1(db1, db2):
     
     testmerge_check(db1, db2)
     
+    print "Finished test 1. "
+    
     
 def test_merge2(db1, db2):
     '''
@@ -46,6 +50,8 @@ def test_merge2(db1, db2):
     DB1: No assertions
     DB2: No assertions
     '''
+    print "Running test 2: "
+    
     conceptdb.create_mongodb(db1)
     Assertion.drop_collection()
     Dataset.drop_collection()  
@@ -70,6 +76,8 @@ def test_merge2(db1, db2):
     '''
     
     testmerge_check(db1, db2)
+    
+    print "Finished test 2."
     
 def test_merge3(db1, db2):
     '''
@@ -77,6 +85,8 @@ def test_merge3(db1, db2):
     DB1: assertions in one dataset
     DB2: assertions in another dataset
     '''
+    print "Running test 3: "
+    
     conceptdb.create_mongodb(db1)
     Assertion.drop_collection()
     Dataset.drop_collection()  
@@ -106,6 +116,8 @@ def test_merge3(db1, db2):
     Check post-merge elements, make sure they match
     '''
     testmerge_check(db1, db2)
+    
+    print "Finished test 3."
     
 def test_merge4(db1, db2):
     '''
@@ -113,6 +125,8 @@ def test_merge4(db1, db2):
     DB1: assertions in one dataset
     DB2: assertions in another dataset
     '''
+    print "Running test 4: "
+    
     conceptdb.create_mongodb(db1)
     Assertion.drop_collection()
     Dataset.drop_collection()  
@@ -140,6 +154,8 @@ def test_merge4(db1, db2):
     Check post-merge elements, make sure they match
     '''
     testmerge_check(db1, db2)
+    
+    print "Finished test 4."
     
 '''
 Creates two test dbs, calls merge
@@ -150,6 +166,8 @@ def test_merge5(db1, db2):
     DB1: Assertions 0-9
     DB2: Assertions 0-4
     '''
+    print "Running test 5: "
+    
     conceptdb.create_mongodb(db1)
     Assertion.drop_collection()
     Dataset.drop_collection()  
@@ -186,6 +204,7 @@ def test_merge5(db1, db2):
     '''
     testmerge_check(db1, db2)
     
+    print "Finished test 5."
     
 def test_merge6(db1, db2):
     '''
@@ -193,6 +212,8 @@ def test_merge6(db1, db2):
     DB1: Assertions 0-9
     DB2: Assertions 0-4
     '''
+    print "Running test 6: "
+    
     conceptdb.create_mongodb(db1)
     Assertion.drop_collection()
     Dataset.drop_collection()  
@@ -228,6 +249,8 @@ def test_merge6(db1, db2):
     Check post-merge elements, make sure they match
     '''
     testmerge_check(db1, db2, '/data/test')
+    
+    print "Finished test 6."
 
 '''
 For use with the API:
@@ -366,11 +389,11 @@ def testmerge_check(db1, db2, dataset=None):
     
 if __name__=="__main__":
     test_merge1('test1', 'test2')
-    #test_merge2('test1', 'test2')
-    #test_merge3('test1', 'test2')
-    #test_merge4('test1', 'test2')
-    #test_merge5('test1', 'test2')
-    #test_merge6('test1', 'test2')
+    test_merge2('test1', 'test2')
+    test_merge3('test1', 'test2')
+    test_merge4('test1', 'test2')
+    test_merge5('test1', 'test2')
+    test_merge6('test1', 'test2')
     
     
     
