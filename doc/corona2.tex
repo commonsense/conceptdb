@@ -10,7 +10,8 @@ CORONA did not work as planned. Although I didn't discover this in time to
 finish the paper, its emergent effects on large networks turned out to
 undesirable.  For example: either (without normalization) agents that cast a
 lot of votes accumulate lots of power, or (with normalization) every node can
-cause huge swings of reliability in its sparsely-connected neighbors.
+cause huge swings of reliability in its sparsely-connected neighbors,
+especially by casting negative votes.
 
 On real ConceptNet data, the first case leads to the unreliable Verbosity
 having thousands of times more influence than other knowledge sources, and the
@@ -34,17 +35,10 @@ The main sources of these problems were:
 
 The key redesign I have in mind is to separate the vote that is being cast from
 the strength of that vote. These "votes" are assertions of how reliable node A
-thinks node B should be, from 0 to BIGNUM. A vote of 0 means you think it's
-unreliable. A vote of BIGNUM means you think it's reliable enough to stake your
-own reliability on. Votes in between are also possible, of course.
-
-I say BIGNUM because it should be possible to cast arbitrarily large votes
-without breaking the system, although practical implementations might want to
-put a cap at some nice number like 100.
-
-These votes are averaged together (on a bit of an odd scale where BIGNUMs do
-not dominate, which I will justify in a bit). The votes are also *weighted*
-according to the reliability of the nodes casting them.
+thinks node B should be, from 0 to 1. A vote of 0 means you think it's
+unreliable. A vote of 1 means you think it's reliable. Votes in between are
+also possible and helpful, of course (although, from a voting theory point of
+view, a rational, self-interested voter will only cast votes of 0 or 1).
 
 Because of this averaging process, negative reliability is no longer necessary.
 Unreliability is now indicated by values near 0.
@@ -72,12 +66,38 @@ Now suppose that node A downvotes node C, saying that C should have reliability
 0. C does not drag down A with it, because the dual message from node C has
 *weight* 0.
 
-\subsection{The Weighted Enharmonic Mean}
+\subsection{Weights vs. probabilities}
 
-Defining how this averaging works requires defining an operation called the
-"enharmonic mean". This operation is vaguely reminiscent of the harmonic mean,
-but has very different properties. It derives from the same equations that
-related the previous CORONA's disjunctions to fuzzy logic disjunctions, by
-mapping CORONA's [0, inf) scale to fuzzy logic's [0, 1] scale.
+Although these numbers fall between 0 and 1, I still do not intend to treat
+them as probabilities, because the events described have no known probabilistic
+model, and because reconciling different assessments of probability for the
+same event is an unnecessarily complex problem. These numbers should instead be
+considered as fuzzy truth values.
+
+These values can be considered directly as fuzzy logic truth values, instead of
+requiring mapping through a function $f$.
+
+The justification graph, as before, may contain disjunctions or conjunctions of
+justifications. Here is the mapping between those and fuzzy logic:
+
+\begin{itemize}
+\item Disjunctions of justifications are combined in a weighted average, as
+described above.
+\item Conjunctions are implemented using the Hamacher product $H(a, b) =
+ab/(a+b-ab)$, as in the original paper. The advantage of the Hamacher product
+over the standard arithmetic product is that conjunctions of low-reliability
+nodes are punished only linearly, not quadratically. $H(a, a) = o(a)$ as $a
+\rightarrow 0$, while $a \cdot a = o(a^2)$.
+\item Negations are no longer necessary; a node can decrease the reliability of
+another node by giving it a vote of 0 or a sufficiently low number.
+\end{itemize}
+
+\section{Combining justifications and a prior}
+
+Nodes start with a defined level of reliability, which can be set to an
+arbitrary value. Each node starts with the equivalent of one vote for it at
+that level of reliability. Because the weighted average and the Hamacher
+product are approximately linear, changing the prior should only change the
+scale factor of the results.
 
 \end{document}

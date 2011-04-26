@@ -9,7 +9,29 @@ def ensure_reference(obj):
     else:
         raise ValueError("Don't know how to reference %s" % obj)
 
+def hamacher(values):
+    """
+    Calculates the Hamacher product of a list of numbers. The Hamacher product
+    is a product-like norm that scales approximately linearly with its
+    input values. We use it for conjunctions in ConceptDB/CORONA.
+    """
+    result = 1.0
+    for val in values:
+        result = (result*val) / (result + val - result*val)
+    return result
+
 class Reason(ConceptDBDocument, mon.Document):
+    """
+    A Reason is used to connect justifications to the things they justify.
+    
+    Each Reason represents a conjunction of multiple justifications, called
+    "factors", that justify a single node called the "target". When there is
+    no conjunction involved, each Reason should simply have a single factor.
+
+    Reasons can update the reliability scores of their factors and their
+    target. Over time, the update rule should converge to Rob's CORONA measure
+    (the second revision, as defined in doc/corona2.tex).
+    """
     # target: What is this a reason for?
     # (Expressed as a URL that may or may not refer to a DB object.)
     target = mon.StringField()
@@ -18,27 +40,20 @@ class Reason(ConceptDBDocument, mon.Document):
     # (That is, the factors form a conjunction.)
     factors = mon.ListField(mon.StringField())
 
-    # weight: How much do we inherently believe this reason, independently
+    # edge_weight: How much do we inherently believe this reason, independently
     # of how much we believe its factors?
-    # (Changed from "weights" because there's no reason to keep them as
-    # separate factors)
-    weight = mon.FloatField()
+    edge_weight = mon.FloatField()
 
-    # polarity: Is this a reason to believe or disbelieve its target?
-    polarity = mon.BooleanField()
-    
-    # confidence_update: Has the weight of this reason been added to the target's
-    # confidence value yet?
-    #confidence_update = mon.BooleanField()
+    # node_weight: How much do we believe this reason as a conjunction of
+    # its factors?
+    node_weight = mon.FloatField()
 
-    meta = {'indexes': [('target', 'polarity'),
-                        'factors']}
+    meta = {'indexes': ['target', 'node_weight', 'factors']}
 
     @staticmethod
     def make(target, factors, weight, polarity):
         target = ensure_reference(target)
         factors = [ensure_reference(f) for f in factors]
-        #confidence_update=False
         r = Reason.objects.get_or_create(
             target=target,
             factors__all=factors,
@@ -50,12 +65,17 @@ class Reason(ConceptDBDocument, mon.Document):
             # Occam's supercharged electric razor may not be exactly the right
             # criterion.
             r[0].factors = factors
-            r[0].weight = weight
-            #r[0].confidence_update=confidence_update
+            r[0].edge_weight = weight
+            r[0].node_weight = 0.0
+            r[0].update_node()
         return r[0]
+    
+    def update_node(self):
+        pass
 
     def check_consistency(self):
-        assert 0.0 <= self.weight <= 1.0
+        assert 0.0 <= self.node_weight <= 1.0
+        assert 0.0 <= self.edge_weight <= 1.0
 
 def justify(target, factors, weight):
     return Reason.make(target, factors, weight, True)
