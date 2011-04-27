@@ -11,6 +11,11 @@ Merge should:
 - NOT add multiple assertions (defined as: same dataset, relation, concepts, polarity, weight) -- Assertion IDs will still change
 - Add reasons pointing to new assertions
 - Add reasons pointing to old assertions, changing the reason's target to the new DB's Assertion ID for the matching assertion
+
+TODO:
+- merge factors (can be assertions)
+- 
+
 '''
 def merge(db1, db2, dataset=None):
     ''' 

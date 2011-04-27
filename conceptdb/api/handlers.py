@@ -557,11 +557,15 @@ class ConceptDBHandler(BaseHandler):
         
         db1 = request.POST['database1']
         db2 = request.POST['database2']
+        dataset = request.POST.get('dataset', 'None')
         user = request.POST['user']
         password = request.POST['password']
         
+        if dataset == 'None':
+            dataset = None
+        
         if User.objects.get(username=user).check_password(password):
-            merge(db1, db2)
+            merge(db1, db2, dataset)
 
         else:
             #incorrect password
