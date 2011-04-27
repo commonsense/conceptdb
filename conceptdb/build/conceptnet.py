@@ -3,7 +3,7 @@ from csc.conceptnet.models import Assertion as OldAssertion, RawAssertion, Vote,
 
 import conceptdb
 from conceptdb.assertion import Assertion, Expression
-from conceptdb.justify import Reason, justify
+from conceptdb.justify import ReasonConjunction, justify
 from conceptdb.metadata import Dataset
 
 import time

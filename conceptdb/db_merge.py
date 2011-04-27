@@ -1,7 +1,7 @@
 import conceptdb
 from conceptdb.metadata import Dataset
 from conceptdb.assertion import Assertion
-from conceptdb.justify import Reason
+from conceptdb.justify import ReasonConjunction
 from mongoengine.queryset import QuerySet
 
 '''
@@ -35,29 +35,29 @@ def merge(db1, db2, dataset=None):
     for db1_a in [a1 for a1 in list(db1_assertions) if a1 not in list(db2_assertions)]:
         conceptdb.connect_to_mongodb(db1)
         # New assertions, along with the reasons
-        db2_tobeadded.append((db1_a, Reason.objects.filter(target=db1_a.name)))
+        db2_tobeadded.append((db1_a, ReasonConjunction.objects.filter(target=db1_a.name)))
         # Check that each assertion does not exist in the DB with a different Assertion ID
         for db2_check in list(db2_assertions):
             if assertion_check(db1_a, db2_check):
                 # Do not add multiple assertions
                 db2_tobeadded.pop()
                 # But DO add new reasons that point to existing assertions
-                if Reason.objects.filter(target=db1_a.name) is not None:
-                    db2_tobeadded.append((None, (Reason.objects.filter(target=db1_a.name), db2_check)))
+                if ReasonConjunction.objects.filter(target=db1_a.name) is not None:
+                    db2_tobeadded.append((None, (ReasonConjunction.objects.filter(target=db1_a.name), db2_check)))
                 break         
     # Looping to find assertions in DB2 that are not in DB1
     for db2_a in [a2 for a2 in list(db2_assertions) if a2 not in list(db1_assertions)]:
         conceptdb.connect_to_mongodb(db2)
         # New assertions, along with the reasons
-        db1_tobeadded.append((db2_a, Reason.objects.filter(target=db2_a.name)))
+        db1_tobeadded.append((db2_a, ReasonConjunction.objects.filter(target=db2_a.name)))
         # Check that each assertion does not exist in the DB with a different Assertion ID
         for db1_check in list(db1_assertions):
             if assertion_check(db2_a, db1_check):
                 # Do not add multiple assertions
                 db1_tobeadded.pop()
                 # But DO add new reasons that point to existing assertions
-                if Reason.objects.filter(target=db2_a.name) is not None:
-                    db1_tobeadded.append((None, (Reason.objects.filter(target=db2_a.name), db1_check)))
+                if ReasonConjunction.objects.filter(target=db2_a.name) is not None:
+                    db1_tobeadded.append((None, (ReasonConjunction.objects.filter(target=db2_a.name), db1_check)))
                 break
    
     '''
@@ -70,7 +70,7 @@ def merge(db1, db2, dataset=None):
     for (add1,rel1) in db1_tobeadded:
         if add1 == None:
             for r1 in list(rel1[0]):
-                if Reason.objects.filter(target=rel1[1],factors=r1.factors,weight=r1.weight, polarity=r1.polarity) ==None:
+                if ReasonConjunction.objects.filter(target=rel1[1],factors=r1.factors,weight=r1.weight, polarity=r1.polarity) ==None:
                     rel1[1].add_support(r1.factors, r1.weight)
             continue
         ass1 = db1_assertions.create(
@@ -88,7 +88,7 @@ def merge(db1, db2, dataset=None):
     for (add2,rel2) in db2_tobeadded:
         if add2 == None:
             for r2 in list(rel2[0]):
-                if Reason.objects.filter(target=rel2[1],factors=r2.factors,weight=r2.weight, polarity=r2.polarity) ==None:
+                if ReasonConjunction.objects.filter(target=rel2[1],factors=r2.factors,weight=r2.weight, polarity=r2.polarity) ==None:
                     rel2[1].add_support(r2.factors, r2.weight)
             continue
         ass2 = db2_assertions.create(

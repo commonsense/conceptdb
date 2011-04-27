@@ -46,11 +46,11 @@ class ReasonConjunction(ConceptDBDocument, mon.Document):
     # target node?
     vote = mon.FloatField()
 
-    # confidence: How much do we believe this reason as a conjunction of
+    # weight: How much do we believe this reason as a conjunction of
     # its factors?
-    confidence = mon.FloatField()
+    weight = mon.FloatField()
 
-    meta = {'indexes': ['target', 'confidence', 'factors']}
+    meta = {'indexes': ['target', 'weight', 'factors']}
 
     @staticmethod
     def make(target, factors, vote):
