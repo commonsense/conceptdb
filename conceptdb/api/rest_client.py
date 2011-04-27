@@ -68,6 +68,9 @@ def vote_by_id(user, password, assertion_id, vote = '1'):
 def vote_by_lookup(user, password, dataset, relation, concepts, polarity=1, context='None', vote = '1'):
     return _get_post_json('assertionvote', [('user', user), ('password', password), ('dataset', dataset), ('rel', relation), ('concepts', concepts), ('polarity', str(polarity)), ('context', context), ('vote', vote)])
 
+def db_merge(user, password, database1, database2):
+    return _get_post_json('dbmerge', [('user', user), ('password', password), ('database1', database1), ('database2', database2)])
+
 def _get_json(*url_parts):
     url = API_URL + '/'.join(urllib2.quote(str(p)) for p in url_parts) + '?format=json'
     return json.loads(_get_url(url))
