@@ -16,8 +16,8 @@ class Dataset(ConceptDBDocument, mon.Document):
     
     @staticmethod
     def make(name, language):
-        d = Dataset.objects.get_or_create(name=name,
-              defaults=dict(language=language))
+        d, _ = Dataset.objects.get_or_create(name=name,
+                 defaults=dict(language=language))
         return d
 
     def check_consistency(self):
