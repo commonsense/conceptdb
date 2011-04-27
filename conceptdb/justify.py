@@ -22,17 +22,17 @@ def hamacher(values):
         result = (result*val) / (result + val - result*val)
     return result
 
-class Reason(ConceptDBDocument, mon.Document):
+class ReasonConjunction(ConceptDBDocument, mon.Document):
     """
-    A Reason is used to connect justifications to the things they justify.
+    A ReasonConjunction is used to connect justifications to the things they justify.
     
-    Each Reason represents a conjunction of multiple justifications, called
+    Each ReasonConjunction represents a conjunction of multiple justifications, called
     "factors", that justify a single node called the "target". When there is
-    no conjunction involved, each Reason should simply have a single factor.
+    no conjunction involved, each ReasonConjunction should simply have a single factor.
 
-    Reasons can update the reliability scores of their factors and their
-    target. Over time, the update rule should converge to Rob's CORONA measure
-    (the second revision, as defined in doc/corona2.tex).
+    ReasonConjunctions can update the reliability scores of their factors and
+    their target. Over time, the update rule should converge to Rob's CORONA
+    measure (the second revision, as defined in doc/corona2.tex).
     """
     # target: What is this a reason for?
     # (Expressed as a URL that may or may not refer to a DB object.)
@@ -54,20 +54,21 @@ class Reason(ConceptDBDocument, mon.Document):
 
     @staticmethod
     def make(target, factors, vote):
+        # updated to corona2 form.
         target = ensure_reference(target)
         factors = [ensure_reference(f) for f in factors]
-        r = Reason.objects.get_or_create(
+        r, _ = ReasonConjunction.objects.get_or_create(
             target=target,
             factors__all=factors,
             defaults={'factors': factors, 'vote': vote}
         )
-        if r[0].id is not None:
+        if r.id is not None:
             # FIXME: this minimizes the number of factors at all costs.
             # This may not be the correct rule, but it's hard to think of
             # cases where it goes wrong.
-            r[0].factors = factors
-            r[0].vote = vote
-        return r[0]
+            r.factors = factors
+            r.vote = vote
+        return r
     
     def update_node(self):
         prod = 1.0
@@ -76,30 +77,37 @@ class Reason(ConceptDBDocument, mon.Document):
             pass
 
     def check_consistency(self):
-        assert 0.0 <= self.node_weight <= 1.0
-        assert 0.0 <= self.edge_weight <= 1.0
+        # TODO
+        pass
 
 def justify(target, factors, weight):
-    return Reason.make(target, factors, weight, True)
+    return ReasonConjunction.make(target, factors, weight, True)
 
 class ConceptDBJustified(ConceptDBDocument):
     """
     Documents that inherit from this gain some convenience methods for updating
     their Justifications.
     """
-    def add_support(self, reasons, weight=1.0):
-        self.confidence += weight
-        self.save()
-        return Reason.make(self, reasons, weight, True)
-
-    def add_oppose(self, reasons, weight=1.0):
-        return Reason.make(self, reasons, weight, False)
+    def add_reason(self, factors, vote):
+        return ReasonConjunction.make(self, factors, vote)
+    
+    def add_support(self, factors):
+        """
+        Make a ReasonConjunction that supports (votes 1 on) this object.
+        """
+        return self.add_reason(factors, 1.0)
+    
+    def add_oppose(self, factors):
+        """
+        Make a ReasonConjunction that opposes (votes 0 on) this object.
+        """
+        return self.add_reason(factors, 0.0)
 
     def update_confidence(self):
         # TODO: make corona2 ready
         self.confidence=0
         #, confidence_update=False
-        for r in Reason.objects(target=self.name):
+        for r in ReasonConjunction.objects(target=self.name):
             # Add the weight to the confidence value, should be changed to something else
             self.confidence+=r.weight
             
@@ -110,8 +118,6 @@ class ConceptDBJustified(ConceptDBDocument):
             r.save()
         return self.confidence
 
-    def get_support(self):
-        return Reason.objects(target=self.name, polarity=True)
+    def get_reasons(self):
+        return ReasonConjunction.objects(target=self.name)
 
-    def get_oppose(self, dereference=True):
-        return Reason.objects(target=self.name, polarity=False)

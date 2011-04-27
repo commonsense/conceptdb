@@ -35,25 +35,6 @@ The main sources of these problems were:
 \end{itemize}
 \section{Weighted averaging}
 
-The key redesign I have in mind is to separate the vote that is being cast from
-the strength of that vote. These ``votes'' are assertions of how reliable node A
-thinks node B should be, from 0 to BIGNUM. A vote of 0 means you think it's
-unreliable. A vote of BIGNUM means you think it's reliable enough to stake your
-own reliability on. Votes in between are also possible, of course 
-(although, from a voting theory point of
-view, a rational, self-interested voter will only cast votes of 0 or 1).
-
-I say BIGNUM because it should be possible to cast arbitrarily large votes
-without breaking the system, although practical implementations might want to
-put a cap at some nice number like 100.
-
-These votes are averaged together (on a bit of an odd scale where BIGNUMs do
-not dominate, which I will justify in a bit). The votes are also *weighted*
-according to the reliability of the nodes casting them.
-
-Because of this averaging process, negative reliability is no longer necessary.
-Unreliability is now indicated by values near 0.
-
 Terminology: we have nodes with different amounts of reliability casting votes
 about different amounts of reliability. Let us refer to these as the \emph{node
 weight} and the \emph{edge weight} respectively. Then, the reliability of a
