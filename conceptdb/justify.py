@@ -13,7 +13,9 @@ def hamacher(values):
     """
     Calculates the Hamacher product of a list of numbers. The Hamacher product
     is a product-like norm that scales approximately linearly with its
-    input values. We use it for conjunctions in ConceptDB/CORONA.
+    input values, so that its outputs are in the same units as its inputs.
+    
+    We use it for conjunctions in ConceptDB/CORONA.
     """
     result = 1.0
     for val in values:
@@ -40,38 +42,38 @@ class Reason(ConceptDBDocument, mon.Document):
     # (That is, the factors form a conjunction.)
     factors = mon.ListField(mon.StringField())
 
-    # edge_weight: How much do we inherently believe this reason, independently
-    # of how much we believe its factors?
-    edge_weight = mon.FloatField()
+    # vote: According to this conjunction of factors, how reliable is the
+    # target node?
+    vote = mon.FloatField()
 
-    # node_weight: How much do we believe this reason as a conjunction of
+    # confidence: How much do we believe this reason as a conjunction of
     # its factors?
-    node_weight = mon.FloatField()
+    confidence = mon.FloatField()
 
-    meta = {'indexes': ['target', 'node_weight', 'factors']}
+    meta = {'indexes': ['target', 'confidence', 'factors']}
 
     @staticmethod
-    def make(target, factors, weight, polarity):
+    def make(target, factors, vote):
         target = ensure_reference(target)
         factors = [ensure_reference(f) for f in factors]
         r = Reason.objects.get_or_create(
             target=target,
             factors__all=factors,
-            polarity=polarity,
-            defaults={'factors': factors, 'weight': weight}
+            defaults={'factors': factors, 'vote': vote}
         )
         if r[0].id is not None:
             # FIXME: this minimizes the number of factors at all costs.
-            # Occam's supercharged electric razor may not be exactly the right
-            # criterion.
+            # This may not be the correct rule, but it's hard to think of
+            # cases where it goes wrong.
             r[0].factors = factors
-            r[0].edge_weight = weight
-            r[0].node_weight = 0.0
-            r[0].update_node()
+            r[0].vote = vote
         return r[0]
     
     def update_node(self):
-        pass
+        prod = 1.0
+        for factor_ref in self.factors:
+            # TODO: how should this work?
+            pass
 
     def check_consistency(self):
         assert 0.0 <= self.node_weight <= 1.0
@@ -91,11 +93,8 @@ class ConceptDBJustified(ConceptDBDocument):
     def add_oppose(self, reasons, weight=1.0):
         return Reason.make(self, reasons, weight, False)
 
-    def confidence(self):
-        return self.confidence
-
     def update_confidence(self):
-        # TODO
+        # TODO: make corona2 ready
         self.confidence=0
         #, confidence_update=False
         for r in Reason.objects(target=self.name):
@@ -114,4 +113,3 @@ class ConceptDBJustified(ConceptDBDocument):
 
     def get_oppose(self, dereference=True):
         return Reason.objects(target=self.name, polarity=False)
-

@@ -123,8 +123,6 @@ class ConceptDBDocument(object):
                 update['set__'+key] = value
             result = query.update_one(**update)
             return result
-        else:
-            self[fieldname].append(value)
 
     def append(self, fieldname, value, db_only=True):
         if db_only and self.id:
