@@ -3,7 +3,7 @@ from piston.utils import throttle, rc
 from piston.authentication import HttpBasicAuthentication
 from conceptdb.assertion import Assertion, Sentence, Expression
 from conceptdb.metadata import Dataset
-from conceptdb.justify import Reason
+from conceptdb.justify import ReasonConjunction
 from conceptdb.freebase_imports import MQLQuery
 from conceptdb import ConceptDBDocument
 from conceptdb.db_merge import merge
@@ -145,7 +145,7 @@ class ConceptDBHandler(BaseHandler):
 
 
     def factorUsedFor(self, obj_url):
-        """Given a factor in a Reason object, returns all of the things
+        """Given a factor in a ReasonConjunction object, returns all of the things
         that the reason has been used to justify. Currently returns a list of the things
         that use it in form {assertions: [list of assertions], sentence: [list of sentences],
         expression: [list of expressions]}.  If the reason has also been used to 
@@ -163,7 +163,7 @@ class ConceptDBHandler(BaseHandler):
         expressions = [] #list of expressions with obj_url as justification
         sentences = [] #list of sentences with obj_url as justification
         other = False #
-        cursor = Reason.objects._collection.find({'factors':factorName})
+        cursor = ReasonConjunction.objects._collection.find({'factors':factorName})
         while(True):
             try:
                 next_item = cursor.next()['target']
@@ -204,11 +204,11 @@ class ConceptDBHandler(BaseHandler):
         return ret 
 
     def reasonLookup(self, obj_url):
-        """Method allows you to look up a Reason by its id.  
+        """Method allows you to look up a ReasonConjunction by its id.  
         Accessed by going to URL /api/reason/{id}
         """
         try:
-            return Reason.objects.get(obj_url.replace('/reason/', '')).serialize()
+            return ReasonConjunction.objects.get(obj_url.replace('/reason/', '')).serialize()
         except DoesNotExist:
             return rc.NOT_FOUND
 
@@ -274,7 +274,7 @@ class ConceptDBHandler(BaseHandler):
             #the user's password is correct.  Get their reason and add
             
             try:
-                user_reason = Reason.objects.get(target=dataset + '/contributor/' + user)
+                user_reason = ReasonConjunction.objects.get(target=dataset + '/contributor/' + user)
             except DoesNotExist:
                 return rc.FORBIDDEN
         else:
@@ -358,7 +358,7 @@ class ConceptDBHandler(BaseHandler):
 
             #the user's password is correct.  Get their reason and add
             try:
-              Reason.objects.get(target = dataset + '/contributor/' + user)
+              ReasonConjunction.objects.get(target = dataset + '/contributor/' + user)
             except DoesNotExist:
               return rc.FORBIDDEN
         else:
@@ -454,7 +454,7 @@ class ConceptDBHandler(BaseHandler):
         if User.objects.get(username=user).check_password(password):
             #the user's password is correct.  Get their reason and add
             try:
-                user_reason = Reason.objects.get(target=dataset + '/contributor/' + user)
+                user_reason = ReasonConjunction.objects.get(target=dataset + '/contributor/' + user)
             except DoesNotExist:
                 return rc.FORBIDDEN
         else:
@@ -540,7 +540,7 @@ class ConceptDBHandler(BaseHandler):
         if User.objects.get(username=user).check_password(password):
             #the user's password is correct.  Get their reason and add
             try:
-                user_reason = Reason.objects.get(target=dataset + '/contributor/' + user)
+                user_reason = ReasonConjunction.objects.get(target=dataset + '/contributor/' + user)
             except DoesNotExist:
                 return rc.FORBIDDEN
         else:

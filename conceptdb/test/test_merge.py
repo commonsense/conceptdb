@@ -1,7 +1,7 @@
 import conceptdb
 from conceptdb.metadata import Dataset
 from conceptdb.assertion import Assertion
-from conceptdb.justify import Reason
+from conceptdb.justify import ReasonConjunction
 from mongoengine.queryset import QuerySet
 from conceptdb.db_merge import *
 
@@ -17,12 +17,12 @@ def test_merge1(db1, db2):
     conceptdb.create_mongodb(db1)
     Assertion.drop_collection()
     Dataset.drop_collection()  
-    Reason.drop_collection()
+    ReasonConjunction.drop_collection()
     
     conceptdb.create_mongodb(db2)
     Assertion.drop_collection()
     Dataset.drop_collection()
-    Reason.drop_collection()
+    ReasonConjunction.drop_collection()
     for i in xrange(10):
         a1 = Assertion.make('/data/test','/rel/IsA',['/test/assertion','test/test%d'%i])  
         a1.add_support(['/data/test/contributor/nholm'])
@@ -55,13 +55,13 @@ def test_merge2(db1, db2):
     conceptdb.create_mongodb(db1)
     Assertion.drop_collection()
     Dataset.drop_collection()  
-    Reason.drop_collection()
+    ReasonConjunction.drop_collection()
 
     
     conceptdb.create_mongodb(db2)
     Assertion.drop_collection()
     Dataset.drop_collection()
-    Reason.drop_collection()
+    ReasonConjunction.drop_collection()
 
     
     testmerge_display(db1, db2)
@@ -90,7 +90,7 @@ def test_merge3(db1, db2):
     conceptdb.create_mongodb(db1)
     Assertion.drop_collection()
     Dataset.drop_collection()  
-    Reason.drop_collection()
+    ReasonConjunction.drop_collection()
     for i in xrange(10):
         a = Assertion.make('/data/test1','/rel/IsA',['/test/assertion','test/test%d'%i])
         a.add_support(['/data/test/contributor/nholm'])  
@@ -99,7 +99,7 @@ def test_merge3(db1, db2):
     conceptdb.create_mongodb(db2)
     Assertion.drop_collection()
     Dataset.drop_collection()
-    Reason.drop_collection()
+    ReasonConjunction.drop_collection()
     for i in xrange(10):
         a1 = Assertion.make('/data/test2','/rel/IsA',['/test/assertion','test/test%d'%i])  
         a1.add_support(['/data/test/contributor/nholm'])
@@ -130,7 +130,7 @@ def test_merge4(db1, db2):
     conceptdb.create_mongodb(db1)
     Assertion.drop_collection()
     Dataset.drop_collection()  
-    Reason.drop_collection()
+    ReasonConjunction.drop_collection()
     for i in xrange(10):
         a = Assertion.make('/data/test1','/rel/IsA',['/test/assertion','test/test%d'%i])
         a.add_support(['/data/test/contributor/nholm'])  
@@ -138,7 +138,7 @@ def test_merge4(db1, db2):
     conceptdb.create_mongodb(db2)
     Assertion.drop_collection()
     Dataset.drop_collection()
-    Reason.drop_collection()
+    ReasonConjunction.drop_collection()
     for i in xrange(10):
         a1 = Assertion.make('/data/test2','/rel/IsA',['/test/assertion','test/test%d'%i])  
         a1.add_support(['/data/test/contributor/nholm'])
@@ -171,7 +171,7 @@ def test_merge5(db1, db2):
     conceptdb.create_mongodb(db1)
     Assertion.drop_collection()
     Dataset.drop_collection()  
-    Reason.drop_collection()
+    ReasonConjunction.drop_collection()
     for i in xrange(10):
         a = Assertion.make('/data/test','/rel/IsA',['/test/assertion','test/test%d'%i])
         a.add_support(['/data/test/contributor/nholm'])     
@@ -180,7 +180,7 @@ def test_merge5(db1, db2):
     conceptdb.create_mongodb(db2)
     Assertion.drop_collection()
     Dataset.drop_collection()
-    Reason.drop_collection()
+    ReasonConjunction.drop_collection()
     for i in xrange(5):
         a1 = Assertion.make('/data/test','/rel/IsA',['/test/assertion','test/test%d'%i])  
         a1.add_support(['/data/test/contributor/nholm'])
@@ -217,7 +217,7 @@ def test_merge6(db1, db2):
     conceptdb.create_mongodb(db1)
     Assertion.drop_collection()
     Dataset.drop_collection()  
-    Reason.drop_collection()
+    ReasonConjunction.drop_collection()
     for i in xrange(10):
         a = Assertion.make('/data/test','/rel/IsA',['/test/assertion','test/test%d'%i])
         a.add_support(['/data/test/contributor/nholm'])    
@@ -228,7 +228,7 @@ def test_merge6(db1, db2):
     conceptdb.create_mongodb(db2)
     Assertion.drop_collection()
     Dataset.drop_collection()
-    Reason.drop_collection()
+    ReasonConjunction.drop_collection()
     for i in xrange(5):
         a1 = Assertion.make('/data/test','/rel/IsA',['/test/assertion','test/test%d'%i])  
         a1.add_support(['/data/test/contributor/nholm'])
@@ -265,7 +265,7 @@ def testmerge_make(db1, db2):
     conceptdb.create_mongodb(db1)
     Assertion.drop_collection()
     Dataset.drop_collection()  
-    Reason.drop_collection()
+    ReasonConjunction.drop_collection()
     for i in xrange(10):
         a = Assertion.make('/data/test','/rel/IsA',['/test/assertion','test/test%d'%i])
         a.add_support(['/data/test/contributor/nholm'])    
@@ -276,7 +276,7 @@ def testmerge_make(db1, db2):
     conceptdb.create_mongodb(db2)
     Assertion.drop_collection()
     Dataset.drop_collection()
-    Reason.drop_collection()
+    ReasonConjunction.drop_collection()
     for i in xrange(5):
         a1 = Assertion.make('/data/test','/rel/IsA',['/test/assertion','test/test%d'%i])  
         a1.add_support(['/data/test/contributor/nholm'])
@@ -295,7 +295,7 @@ def testmerge_display(db1, db2, dataset=None):
         for a1 in Assertion.objects:
             print "assertion: %s"%a1
             print "     confidence score: %s"%a1.confidence
-            for r1 in list(Reason.objects.filter(target=a1.name)):
+            for r1 in list(ReasonConjunction.objects.filter(target=a1.name)):
                 print "     reason: %s"%r1.factors
                 assert r1.target == a1.name
     
@@ -304,7 +304,7 @@ def testmerge_display(db1, db2, dataset=None):
         for a2 in Assertion.objects:
             print "assertion: %s"%a2
             print "     confidence score: %s"%a2.confidence
-            for r2 in list(Reason.objects.filter(target=a2.name)):
+            for r2 in list(ReasonConjunction.objects.filter(target=a2.name)):
                 print "     reason: %s"%r2.factors
                 assert r2.target == a2.name
     else:
@@ -313,7 +313,7 @@ def testmerge_display(db1, db2, dataset=None):
         for a1 in Assertion.objects.filter(dataset=dataset):
             print "assertion: %s"%a1
             print "     confidence score: %s"%a1.confidence
-            for r1 in list(Reason.objects.filter(target=a1.name)):
+            for r1 in list(ReasonConjunction.objects.filter(target=a1.name)):
                 print "     reason: %s"%r1.factors
                 assert r1.target == a1.name
     
@@ -322,7 +322,7 @@ def testmerge_display(db1, db2, dataset=None):
         for a2 in Assertion.objects.filter(dataset=dataset):
             print "assertion: %s"%a2
             print "     confidence score: %s"%a2.confidence
-            for r2 in list(Reason.objects.filter(target=a2.name)):
+            for r2 in list(ReasonConjunction.objects.filter(target=a2.name)):
                 print "     reason: %s"%r2.factors
                 assert r2.target == a2.name
             
@@ -337,54 +337,54 @@ def testmerge_check(db1, db2, dataset=None):
         for a1 in Assertion.objects:
             print "assertion: %s"%a1
             print "     confidence score: %s"%a1.confidence
-            for r1 in list(Reason.objects.filter(target=a1.name)):
+            for r1 in list(ReasonConjunction.objects.filter(target=a1.name)):
                 print "     reason: %s"%r1.factors
                 assert r1.target == a1.name
 
 
         Assertion.drop_collection()
         Dataset.drop_collection()
-        Reason.drop_collection()
+        ReasonConjunction.drop_collection()
     
         conceptdb.connect_to_mongodb(db2)
         print "After the merge, db %s has the following assertions: "%db2
         for a2 in Assertion.objects:
             print "assertion: %s"%a2
             print "     confidence score: %s"%a2.confidence
-            for r2 in list(Reason.objects.filter(target=a2.name)):
+            for r2 in list(ReasonConjunction.objects.filter(target=a2.name)):
                 print "     reason: %s"%r2.factors
                 assert r2.target == a2.name
 
         Assertion.drop_collection() 
         Dataset.drop_collection()
-        Reason.drop_collection()
+        ReasonConjunction.drop_collection()
     else:
         conceptdb.connect_to_mongodb(db1)
         print "After the merge, db %s has the following assertions: "%db1
         for a1 in Assertion.objects.filter(dataset=dataset):
             print "assertion: %s"%a1
             print "     confidence score: %s"%a1.confidence
-            for r1 in list(Reason.objects.filter(target=a1.name)):
+            for r1 in list(ReasonConjunction.objects.filter(target=a1.name)):
                 print "     reason: %s"%r1.factors
                 assert r1.target == a1.name
 
 
         Assertion.drop_collection()
         Dataset.drop_collection()
-        Reason.drop_collection()
+        ReasonConjunction.drop_collection()
     
         conceptdb.connect_to_mongodb(db2)
         print "After the merge, db %s has the following assertions: "%db2
         for a2 in Assertion.objects.filter(dataset=dataset):
             print "assertion: %s"%a2
             print "     confidence score: %s"%a2.confidence
-            for r2 in list(Reason.objects.filter(target=a2.name)):
+            for r2 in list(ReasonConjunction.objects.filter(target=a2.name)):
                 print "     reason: %s"%r2.factors
                 assert r2.target == a2.name
 
         Assertion.drop_collection() 
         Dataset.drop_collection()
-        Reason.drop_collection()
+        ReasonConjunction.drop_collection()
 
     
 if __name__=="__main__":

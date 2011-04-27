@@ -1,7 +1,7 @@
 import conceptdb
 from conceptdb.assertion import Assertion, Expression, Sentence
 from conceptdb.metadata import Dataset
-from conceptdb.justify import Reason
+from conceptdb.justify import ReasonConjunction
 
 conceptdb.connect_to_mongodb('test')
 
@@ -9,7 +9,7 @@ conceptdb.connect_to_mongodb('test')
 Assertion.drop_collection()
 Dataset.drop_collection()
 Expression.drop_collection()
-Reason.drop_collection()
+ReasonConjunction.drop_collection()
 Sentence.drop_collection()
 
 #make a new dataset
@@ -28,7 +28,7 @@ a1.connect_to_sentence(d, 'This assertion is a test.')
 a2.connect_to_sentence(d, 'This database is a test.')
 
 #make a reason for myself
-r = Reason.make('/data/test/contributor/elhawk', ['user_factor'], 0.75, True)
+r = ReasonConjunction.make('/data/test/contributor/elhawk', ['user_factor'], 0.75, True)
 
 #use the reason to vote for assertion a1
 ra1 = a1.add_support(['/data/test/contributor/elhawk'])
