@@ -1,13 +1,8 @@
 import mongoengine as mon
 from conceptdb import ConceptDBDocument, to_json
+from conceptdb.util import ensure_reference, dereference
 from log import Log
 import numpy as np
-
-def ensure_reference(obj):
-    if isinstance(obj, basestring): return obj
-    elif isinstance(obj, ConceptDBDocument): return obj.name
-    else:
-        raise ValueError("Don't know how to reference %s" % obj)
 
 def hamacher(values):
     """
@@ -24,11 +19,13 @@ def hamacher(values):
 
 class ReasonConjunction(ConceptDBDocument, mon.Document):
     """
-    A ReasonConjunction is used to connect justifications to the things they justify.
+    A ReasonConjunction is used to connect justifications to the things they
+    justify.
     
-    Each ReasonConjunction represents a conjunction of multiple justifications, called
-    "factors", that justify a single node called the "target". When there is
-    no conjunction involved, each ReasonConjunction should simply have a single factor.
+    Each ReasonConjunction represents a conjunction of multiple justifications,
+    called "factors", that justify a single node called the "target". When
+    there is no conjunction involved, each ReasonConjunction should simply have
+    a single factor.
 
     ReasonConjunctions can update the reliability scores of their factors and
     their target. Over time, the update rule should converge to Rob's CORONA
@@ -121,3 +118,41 @@ class ConceptDBJustified(ConceptDBDocument):
     def get_reasons(self):
         return ReasonConjunction.objects(target=self.name)
 
+class ConfidenceValue(ConceptDBDocument, mon.Document):
+    """
+    The ConfidenceValue table is stored externally so that:
+
+    - Lots of confidence values can be updated at once without sending large
+      objects through an ORM.
+    - We can track our confidence in objects we don't directly control, without
+      having to copy them into the database.
+    """
+    
+    object_id = mon.StringField()
+    confidence = mon.FloatField()
+
+    meta = {'indexes': ['object', 'confidence']}
+    DEFAULT_CONFIDENCE = 0.5
+    
+    @staticmethod
+    def set(object_id, confidence):
+        """
+        Store the confidence value for a given ID.
+        """
+        query = ConfidenceValue.objects(object_id=object_id)
+        query.update_one(upsert=True, safe_update=False,
+                         set__confidence=confidence)
+        obj = dereference(object_id)
+        if obj is not None:
+            obj.confidence = confidence
+
+    @staticmethod
+    def get_for_object(object_id):
+        """
+        Get the confidence value for a given ID.
+        """
+        entry = ConfidenceValue.objects.with_id(object_id)
+        if entry is None:
+            return ConfidenceValue.DEFAULT_CONFIDENCE
+        else:
+            return entry.confidence
