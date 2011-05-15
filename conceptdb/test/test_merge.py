@@ -28,7 +28,7 @@ def test_merge1(db1, db2):
         a1.add_support(['/data/test/contributor/nholm'])
 
     
-    testmerge_display(db1, db2)
+    #testmerge_display(db1, db2)
 
     '''
     Merge the two dbs
@@ -64,7 +64,7 @@ def test_merge2(db1, db2):
     ReasonConjunction.drop_collection()
 
     
-    testmerge_display(db1, db2)
+    #testmerge_display(db1, db2)
     
     '''
     Merge the two dbs
@@ -105,7 +105,7 @@ def test_merge3(db1, db2):
         a1.add_support(['/data/test/contributor/nholm'])
     
     
-    testmerge_display(db1, db2)
+    #testmerge_display(db1, db2)
     
     '''
     Merge the two dbs
@@ -143,7 +143,7 @@ def test_merge4(db1, db2):
         a1 = Assertion.make('/data/test2','/rel/IsA',['/test/assertion','test/test%d'%i])  
         a1.add_support(['/data/test/contributor/nholm'])
     
-    testmerge_display(db1, db2)
+    #testmerge_display(db1, db2)
     
     '''
     Merge the two dbs
@@ -193,7 +193,7 @@ def test_merge5(db1, db2):
 
 
 
-    testmerge_display(db1, db2)
+    #testmerge_display(db1, db2)
     '''
     Merge the two dbs
     '''
@@ -238,7 +238,7 @@ def test_merge6(db1, db2):
         a3.add_support(['/data/test1/contributor/nholm'])
         
         
-    testmerge_display(db1, db2, '/data/test')
+    #testmerge_display(db1, db2, '/data/test')
     
     '''
     Merge the two dbs
@@ -331,56 +331,108 @@ def testmerge_check(db1, db2, dataset=None):
     '''
     Check post-merge elements, make sure they match
     '''
-    if dataset==None:
-        conceptdb.connect_to_mongodb(db1)
-        print "After the merge, db %s has the following assertions: "%db1
-        for a1 in Assertion.objects:
-            print "assertion: %s"%a1
-            print "     confidence score: %s"%a1.confidence
-            for r1 in list(ReasonConjunction.objects.filter(target=a1.name)):
-                print "     reason: %s"%r1.factors
-                assert r1.target == a1.name
 
+    if dataset==None:
+        print "Testing Assertion objects"
+        conceptdb.connect_to_mongodb(db1)
+        db1_assertions = Assertion.objects
+        conceptdb.connect_to_mongodb(db2)
+        db2_assertions = Assertion.objects
+        
+
+        for db1_a in [a1 for a1 in list(db1_assertions) if a1 not in list(db2_assertions)]:
+            check = False
+            for db2_check in list(db2_assertions):
+                if assertion_check(db1_a, db2_check):
+                    check = True        
+            assert check==True
+        
+        for db2_a in [a2 for a2 in list(db2_assertions) if a2 not in list(db1_assertions)]:
+            check = False
+            for db1_check in list(db1_assertions):
+                if assertion_check(db2_a, db1_check):
+                    check = True
+            assert check==True
+        
+        print "Assertion test PASSED"
+        
+        
+        print "Testing ReasonConjunction objects"
+        conceptdb.connect_to_mongodb(db1)
+        #print "After the merge, db %s has the following assertions: "%db1
+        for a1 in Assertion.objects:
+            #print "assertion: %s"%a1
+            #print "     confidence score: %s"%a1.confidence
+            for r1 in list(ReasonConjunction.objects.filter(target=a1.name)):
+                #print "     reason: %s"%r1.factors
+                assert r1.target == a1.name
 
         Assertion.drop_collection()
         Dataset.drop_collection()
         ReasonConjunction.drop_collection()
     
         conceptdb.connect_to_mongodb(db2)
-        print "After the merge, db %s has the following assertions: "%db2
+        #print "After the merge, db %s has the following assertions: "%db2
         for a2 in Assertion.objects:
-            print "assertion: %s"%a2
-            print "     confidence score: %s"%a2.confidence
+            #print "assertion: %s"%a2
+            #print "     confidence score: %s"%a2.confidence
             for r2 in list(ReasonConjunction.objects.filter(target=a2.name)):
-                print "     reason: %s"%r2.factors
+                #print "     reason: %s"%r2.factors
                 assert r2.target == a2.name
+        
+        print "ReasonConjunction test PASSED"
 
         Assertion.drop_collection() 
         Dataset.drop_collection()
         ReasonConjunction.drop_collection()
     else:
+        print "Testing Assertion objects"
         conceptdb.connect_to_mongodb(db1)
-        print "After the merge, db %s has the following assertions: "%db1
+        db1_assertions = Assertion.objects.filter(dataset=dataset)
+        conceptdb.connect_to_mongodb(db2)
+        db2_assertions = Assertion.objects.filter(dataset=dataset)
+        
+        for db1_a in [a1 for a1 in list(db1_assertions) if a1 not in list(db2_assertions)]:
+            check = False
+            for db2_check in list(db2_assertions):
+                if assertion_check(db1_a, db2_check):
+                    check = True        
+            assert check==True
+        
+        for db2_a in [a2 for a2 in list(db2_assertions) if a2 not in list(db1_assertions)]:
+            check = False
+            for db1_check in list(db1_assertions):
+                if assertion_check(db2_a, db1_check):
+                    check = True
+            assert check==True
+        
+        print "Assertion test PASSED"
+        
+        
+        print "Testing ReasonConjunction objects"
+        conceptdb.connect_to_mongodb(db1)
+        #print "After the merge, db %s has the following assertions: "%db1
         for a1 in Assertion.objects.filter(dataset=dataset):
-            print "assertion: %s"%a1
-            print "     confidence score: %s"%a1.confidence
+            #print "assertion: %s"%a1
+            #print "     confidence score: %s"%a1.confidence
             for r1 in list(ReasonConjunction.objects.filter(target=a1.name)):
-                print "     reason: %s"%r1.factors
+                #print "     reason: %s"%r1.factors
                 assert r1.target == a1.name
-
 
         Assertion.drop_collection()
         Dataset.drop_collection()
         ReasonConjunction.drop_collection()
     
         conceptdb.connect_to_mongodb(db2)
-        print "After the merge, db %s has the following assertions: "%db2
+        #print "After the merge, db %s has the following assertions: "%db2
         for a2 in Assertion.objects.filter(dataset=dataset):
-            print "assertion: %s"%a2
-            print "     confidence score: %s"%a2.confidence
+            #print "assertion: %s"%a2
+            #print "     confidence score: %s"%a2.confidence
             for r2 in list(ReasonConjunction.objects.filter(target=a2.name)):
-                print "     reason: %s"%r2.factors
+                #print "     reason: %s"%r2.factors
                 assert r2.target == a2.name
+        
+        print "ReasonConjunction test PASSED"
 
         Assertion.drop_collection() 
         Dataset.drop_collection()

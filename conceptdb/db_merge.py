@@ -13,8 +13,10 @@ Merge should:
 - Add reasons pointing to old assertions, changing the reason's target to the new DB's Assertion ID for the matching assertion
 
 TODO:
-- merge factors (can be assertions)
-- 
+- merge factors (can just be transferred... but if they are assertions, have to change that assertion in the new DB
+- Make sure API / dbmerge work with changes in justify
+- Look at changes to assertion in justify
+- Fix db_merge tests ... tests can't take arguments! (nosetests)
 
 '''
 def merge(db1, db2, dataset=None):
@@ -75,8 +77,20 @@ def merge(db1, db2, dataset=None):
     for (add1,rel1) in db1_tobeadded:
         if add1 == None:
             for r1 in list(rel1[0]):
-                if ReasonConjunction.objects.filter(target=rel1[1],factors=r1.factors,weight=r1.weight, polarity=r1.polarity) ==None:
-                    rel1[1].add_support(r1.factors, r1.weight)
+                factors_db1 = []
+                for factor in r1.factors:
+                    if type(factor) == Assertion:
+                        factors_db1.append(db1_assertions.create(
+                                              dataset=factor.dataset,
+                                              relation=factor.relation,
+                                              polarity=factor.polarity,
+                                              argstr=factor.argstr,
+                                              context=factor.context,
+                                              complete=1))
+                    else:
+                        factors_db1.append(factor)
+                if ReasonConjunction.objects.filter(target=rel1[1],factors=factors_db1,weight=r1.weight) ==None:
+                    rel1[1].add_support(factors_db1)
             continue
         ass1 = db1_assertions.create(
                               dataset=add1.dataset,
@@ -87,14 +101,38 @@ def merge(db1, db2, dataset=None):
                               complete=1
                               )
         for r1 in list(rel1):
-            ass1.add_support(r1.factors, r1.weight)
+            factors_db1 = []
+            for factor in r1.factors:
+                if type(factor) == Assertion:
+                    factors_db1.append(db1_assertions.create(
+                                              dataset=factor.dataset,
+                                              relation=factor.relation,
+                                              polarity=factor.polarity,
+                                              argstr=factor.argstr,
+                                              context=factor.context,
+                                              complete=1))
+                else:
+                    factors_db1.append(factor)
+            ass1.add_support(factors_db1)
     # Adding to DB2
     conceptdb.connect_to_mongodb(db2)
     for (add2,rel2) in db2_tobeadded:
         if add2 == None:
             for r2 in list(rel2[0]):
-                if ReasonConjunction.objects.filter(target=rel2[1],factors=r2.factors,weight=r2.weight, polarity=r2.polarity) ==None:
-                    rel2[1].add_support(r2.factors, r2.weight)
+                factors_db2 = []
+                for factor in r2.factors:
+                    if type(factor) == Assertion:
+                        factors_db2.append(db2_assertions.create(
+                                              dataset=factor.dataset,
+                                              relation=factor.relation,
+                                              polarity=factor.polarity,
+                                              argstr=factor.argstr,
+                                              context=factor.context,
+                                              complete=1))
+                    else:
+                        factors_db2.append(factor)
+                if ReasonConjunction.objects.filter(target=rel2[1],factors=factors_db2,weight=r2.weight) ==None:
+                    rel2[1].add_support(factors_db2)
             continue
         ass2 = db2_assertions.create(
                               dataset=add2.dataset,
@@ -105,7 +143,19 @@ def merge(db1, db2, dataset=None):
                               complete=1
                               )
         for r2 in list(rel2):
-            ass2.add_support(r2.factors, r2.weight)
+            factors_db2 = []
+            for factor in r2.factors:
+                if type(factor) == Assertion:
+                    factors_db2.append(db2_assertions.create(
+                                              dataset=factor.dataset,
+                                              relation=factor.relation,
+                                              polarity=factor.polarity,
+                                              argstr=factor.argstr,
+                                              context=factor.context,
+                                              complete=1))
+                else:
+                    factors_db2.append(factor)
+            ass2.add_support(factors_db2)
         
     return (db1_assertions, db2_assertions)
 
