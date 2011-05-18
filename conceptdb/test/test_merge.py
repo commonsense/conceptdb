@@ -6,7 +6,7 @@ from mongoengine.queryset import QuerySet
 from conceptdb.db_merge import *
 
 
-def test_merge1(db1, db2):
+def test_merge1(db1='test1', db2='test2'):
     '''
     Load test assertions into the two DBs:
     DB1: No assertions
@@ -44,7 +44,7 @@ def test_merge1(db1, db2):
     print "Finished test 1. "
     
     
-def test_merge2(db1, db2):
+def test_merge2(db1='test1', db2='test2'):
     '''
     Load test assertions into the two DBs:
     DB1: No assertions
@@ -79,7 +79,7 @@ def test_merge2(db1, db2):
     
     print "Finished test 2."
     
-def test_merge3(db1, db2):
+def test_merge3(db1='test1', db2='test2'):
     '''
     Load test assertions into the two DBs:
     DB1: assertions in one dataset
@@ -119,7 +119,7 @@ def test_merge3(db1, db2):
     
     print "Finished test 3."
     
-def test_merge4(db1, db2):
+def test_merge4(db1='test1', db2='test2'):
     '''
     Load test assertions into the two DBs:
     DB1: assertions in one dataset
@@ -160,7 +160,7 @@ def test_merge4(db1, db2):
 '''
 Creates two test dbs, calls merge
 '''
-def test_merge5(db1, db2):
+def test_merge5(db1='test1', db2='test2'):
     '''
     Load test assertions into the two DBs:
     DB1: Assertions 0-9
@@ -206,7 +206,7 @@ def test_merge5(db1, db2):
     
     print "Finished test 5."
     
-def test_merge6(db1, db2):
+def test_merge6(db1='test1', db2='test2'):
     '''
     Load test assertions into the two DBs:
     DB1: Assertions 0-9
@@ -256,7 +256,7 @@ def test_merge6(db1, db2):
 For use with the API:
 testmerge_make() just populates two test dbs and gives them reasons
 '''
-def testmerge_make(db1, db2):
+def testmerge_make(db1='test1', db2='test2'):
     '''
     Load test assertions into the two DBs:
     DB1: Assertions 0-9
@@ -288,7 +288,7 @@ def testmerge_make(db1, db2):
 '''
 Displays all of the assertions and reasons currently in each of the two test dbs
 '''
-def testmerge_display(db1, db2, dataset=None):
+def testmerge_display(db1='test1', db2='test2', dataset=None):
     if dataset == None:
         conceptdb.connect_to_mongodb(db1)
         print "Before the merge, db %s has the following assertions: "%db1
@@ -327,7 +327,7 @@ def testmerge_display(db1, db2, dataset=None):
                 assert r2.target == a2.name
             
     
-def testmerge_check(db1, db2, dataset=None):
+def testmerge_check(db1='test1', db2='test2', dataset=None):
     '''
     Check post-merge elements, make sure they match
     '''
@@ -355,7 +355,6 @@ def testmerge_check(db1, db2, dataset=None):
             assert check==True
         
         print "Assertion test PASSED"
-        
         
         print "Testing ReasonConjunction objects"
         conceptdb.connect_to_mongodb(db1)

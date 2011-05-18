@@ -1,5 +1,5 @@
 import mongoengine as mon
-from conceptdb import ConceptDBDocument, to_json
+from conceptdb import ConceptDBDocument
 from conceptdb.util import ensure_reference, dereference
 from log import Log
 import numpy as np
@@ -70,8 +70,8 @@ class ReasonConjunction(ConceptDBDocument, mon.Document):
     def update_node(self):
         prod = 1.0
         for factor_ref in self.factors:
-            # TODO: how should this work?
-            pass
+            prod = hamacher(prod, ConfidenceValue.get(factor_ref))
+        return prod
 
     def check_consistency(self):
         # TODO
@@ -101,18 +101,10 @@ class ConceptDBJustified(ConceptDBDocument):
         return self.add_reason(factors, 0.0)
 
     def update_confidence(self):
-        # TODO: make corona2 ready
-        self.confidence=0
-        #, confidence_update=False
-        for r in ReasonConjunction.objects(target=self.name):
-            # Add the weight to the confidence value, should be changed to something else
-            self.confidence+=r.weight
-            
-            # Set the reason's confidence_update value to True to ensure it won't be added again
-            r.confidence_update = True
-            
-            self.save()
-            r.save()
+        """
+        Update and return the confidence value of this object.
+        """
+        self.confidence = ConfidenceValue.calculate(self.name)
         return self.confidence
 
     def get_reasons(self):
@@ -126,13 +118,18 @@ class ConfidenceValue(ConceptDBDocument, mon.Document):
       objects through an ORM.
     - We can track our confidence in objects we don't directly control, without
       having to copy them into the database.
+
+    ConfidenceValues are never used as objects by the API. This class could be,
+    and might be, replaced by some plain functions that directly operate on
+    the MongoDB.
     """
     
     object_id = mon.StringField()
     confidence = mon.FloatField()
 
-    meta = {'indexes': ['object', 'confidence']}
+    meta = {'indexes': ['object_id', 'confidence']}
     DEFAULT_CONFIDENCE = 0.5
+    DEFAULT_WEIGHT = 1.0
     
     @staticmethod
     def set(object_id, confidence):
@@ -147,7 +144,7 @@ class ConfidenceValue(ConceptDBDocument, mon.Document):
             obj.confidence = confidence
 
     @staticmethod
-    def get_for_object(object_id):
+    def get(object_id):
         """
         Get the confidence value for a given ID.
         """
@@ -156,3 +153,13 @@ class ConfidenceValue(ConceptDBDocument, mon.Document):
             return ConfidenceValue.DEFAULT_CONFIDENCE
         else:
             return entry.confidence
+    get_for_object = get
+
+    @staticmethod
+    def calculate(object_id):
+        confidence = ConfidenceValue.DEFAULT_CONFIDENCE
+        total_weight = ConfidenceValue.DEFAULT_WEIGHT
+        for r in ReasonConjunction.objects(target=object_id):
+            confidence += r.vote
+            total_weight += r.weight
+        return confidence / total_weight

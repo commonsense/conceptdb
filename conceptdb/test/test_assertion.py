@@ -61,5 +61,4 @@ def test_assertion():
     Dataset.drop_collection()
     Assertion.drop_collection() 
     
-test_assertion()
  
